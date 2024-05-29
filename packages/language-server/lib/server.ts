@@ -39,7 +39,7 @@ export function createServerBase(
 		syncedDocumentParsedUriToUri.delete(URI.parse(e.document.uri).toString());
 	});
 
-	const status = {
+	const server = {
 		connection,
 		fs: createFsWithCache(fs),
 		initializeParams: undefined as unknown as vscode.InitializeParams,
@@ -60,7 +60,7 @@ export function createServerBase(
 		clearPushDiagnostics,
 		refresh,
 	};
-	return status;
+	return server;
 
 	function getSyncedDocumentKey(uri: URI) {
 		const originalUri = syncedDocumentParsedUriToUri.get(uri.toString());
@@ -77,27 +77,27 @@ export function createServerBase(
 			pullModelDiagnostics?: boolean;
 		},
 	) {
-		status.initializeParams = initializeParams;
-		status.languageServicePlugins = languageServicePlugins;
-		status.project = languageServices;
-		status.pullModelDiagnostics = options?.pullModelDiagnostics ?? false;
+		server.initializeParams = initializeParams;
+		server.languageServicePlugins = languageServicePlugins;
+		server.project = languageServices;
+		server.pullModelDiagnostics = options?.pullModelDiagnostics ?? false;
 
 		if (initializeParams.workspaceFolders?.length) {
 			for (const folder of initializeParams.workspaceFolders) {
-				status.workspaceFolders.set(URI.parse(folder.uri), true);
+				server.workspaceFolders.set(URI.parse(folder.uri), true);
 			}
 		}
 		else if (initializeParams.rootUri) {
-			status.workspaceFolders.set(URI.parse(initializeParams.rootUri), true);
+			server.workspaceFolders.set(URI.parse(initializeParams.rootUri), true);
 		}
 		else if (initializeParams.rootPath) {
-			status.workspaceFolders.set(URI.file(initializeParams.rootPath), true);
+			server.workspaceFolders.set(URI.file(initializeParams.rootPath), true);
 		}
 
-		const capabilitiesArr = status.languageServicePlugins.map(plugin => plugin.capabilities);
+		const capabilitiesArr = server.languageServicePlugins.map(plugin => plugin.capabilities);
 
-		status.initializeResult = { capabilities: {} };
-		status.initializeResult.capabilities = {
+		server.initializeResult = { capabilities: {} };
+		server.initializeResult.capabilities = {
 			textDocumentSync: vscode.TextDocumentSyncKind.Incremental,
 			workspace: {
 				// #18
@@ -180,8 +180,8 @@ export function createServerBase(
 				: undefined,
 		};
 
-		if (!status.pullModelDiagnostics && status.initializeResult.capabilities.diagnosticProvider) {
-			status.initializeResult.capabilities.diagnosticProvider = undefined;
+		if (!server.pullModelDiagnostics && server.initializeResult.capabilities.diagnosticProvider) {
+			server.initializeResult.capabilities.diagnosticProvider = undefined;
 			activateServerPushDiagnostics(languageServices);
 		}
 
@@ -203,16 +203,16 @@ export function createServerBase(
 					}
 				}
 			}
-			status.initializeResult.autoInsertion = {
+			server.initializeResult.autoInsertion = {
 				triggerCharacters: allTriggerCharacters,
 				configurationSections: allConfigurationSections,
 			};
 		}
 
-		registerEditorFeatures(status);
-		registerLanguageFeatures(status);
+		registerEditorFeatures(server);
+		registerLanguageFeatures(server);
 
-		return status.initializeResult;
+		return server.initializeResult;
 	}
 
 	function initialized() {
@@ -223,7 +223,7 @@ export function createServerBase(
 	}
 
 	async function shutdown() {
-		status.project.reload(status);
+		server.project.reload(server);
 	}
 
 	async function updateHttpSettings() {
@@ -232,10 +232,10 @@ export function createServerBase(
 	}
 
 	function getConfiguration<T>(section: string, scopeUri?: string): Promise<T | undefined> {
-		if (!status.initializeParams?.capabilities.workspace?.configuration) {
+		if (!server.initializeParams?.capabilities.workspace?.configuration) {
 			return Promise.resolve(undefined);
 		}
-		if (!scopeUri && status.initializeParams.capabilities.workspace?.didChangeConfiguration) {
+		if (!scopeUri && server.initializeParams.capabilities.workspace?.didChangeConfiguration) {
 			if (!configurations.has(section)) {
 				configurations.set(section, getConfigurationWorker(section, scopeUri));
 			}
@@ -316,7 +316,7 @@ export function createServerBase(
 	}
 
 	function registerConfigurationWatcher() {
-		const didChangeConfiguration = status.initializeParams?.capabilities.workspace?.didChangeConfiguration;
+		const didChangeConfiguration = server.initializeParams?.capabilities.workspace?.didChangeConfiguration;
 		if (didChangeConfiguration) {
 			connection.onDidChangeConfiguration(params => {
 				configurations.clear();
@@ -331,8 +331,8 @@ export function createServerBase(
 	}
 
 	function watchFiles(patterns: string[]) {
-		const didChangeWatchedFiles = status.initializeParams?.capabilities.workspace?.didChangeWatchedFiles;
-		const fileOperations = status.initializeParams?.capabilities.workspace?.fileOperations;
+		const didChangeWatchedFiles = server.initializeParams?.capabilities.workspace?.didChangeWatchedFiles;
+		const fileOperations = server.initializeParams?.capabilities.workspace?.fileOperations;
 		if (didChangeWatchedFiles) {
 			connection.onDidChangeWatchedFiles(e => {
 				for (const cb of didChangeWatchedFilesCallbacks) {
@@ -353,15 +353,15 @@ export function createServerBase(
 	}
 
 	function registerWorkspaceFolderWatcher() {
-		if (status.initializeParams?.capabilities.workspace?.workspaceFolders) {
+		if (server.initializeParams?.capabilities.workspace?.workspaceFolders) {
 			connection.workspace.onDidChangeWorkspaceFolders(e => {
 				for (const folder of e.added) {
-					status.workspaceFolders.set(URI.parse(folder.uri), true);
+					server.workspaceFolders.set(URI.parse(folder.uri), true);
 				}
 				for (const folder of e.removed) {
-					status.workspaceFolders.delete(URI.parse(folder.uri));
+					server.workspaceFolders.delete(URI.parse(folder.uri));
 				}
-				status.project.reload(status);
+				server.project.reload(server);
 			});
 		}
 	}
@@ -377,7 +377,7 @@ export function createServerBase(
 	}
 
 	function clearPushDiagnostics() {
-		if (!status.pullModelDiagnostics) {
+		if (!server.pullModelDiagnostics) {
 			for (const document of documents.all()) {
 				connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			}
@@ -388,7 +388,7 @@ export function createServerBase(
 
 		const req = ++semanticTokensReq;
 
-		if (!status.pullModelDiagnostics) {
+		if (!server.pullModelDiagnostics) {
 			await pushAllDiagnostics(projects);
 		}
 
@@ -396,13 +396,13 @@ export function createServerBase(
 		await sleep(delay);
 
 		if (req === semanticTokensReq) {
-			if (status.initializeParams?.capabilities.workspace?.semanticTokens?.refreshSupport) {
+			if (server.initializeParams?.capabilities.workspace?.semanticTokens?.refreshSupport) {
 				connection.languages.semanticTokens.refresh();
 			}
-			if (status.initializeParams?.capabilities.workspace?.inlayHint?.refreshSupport) {
+			if (server.initializeParams?.capabilities.workspace?.inlayHint?.refreshSupport) {
 				connection.languages.inlayHint.refresh();
 			}
-			if (status.pullModelDiagnostics && status.initializeParams?.capabilities.workspace?.diagnostics?.refreshSupport) {
+			if (server.pullModelDiagnostics && server.initializeParams?.capabilities.workspace?.diagnostics?.refreshSupport) {
 				connection.languages.diagnostics.refresh();
 			}
 		}
@@ -439,7 +439,7 @@ export function createServerBase(
 
 	async function pushDiagnostics(projects: Project, uriStr: string, version: number, cancel: vscode.CancellationToken) {
 		const uri = URI.parse(uriStr);
-		const languageService = (await projects.getLanguageService(status, uri));
+		const languageService = (await projects.getLanguageService(server, uri));
 		const errors = await languageService.doValidation(uri, cancel, result => {
 			connection.sendDiagnostics({ uri: uriStr, diagnostics: result, version });
 		});
