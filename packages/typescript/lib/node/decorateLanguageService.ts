@@ -1,26 +1,28 @@
-import {
-	CodeInformation,
-	Language,
-	isCallHierarchyEnabled,
-	isCodeActionsEnabled,
-	isCompletionEnabled,
-	isDefinitionEnabled,
-	isFormattingEnabled,
-	isHighlightEnabled,
-	isHoverEnabled,
-	isImplementationEnabled,
-	isInlayHintsEnabled,
-	isLinkedEditingEnabled,
-	isReferencesEnabled,
-	isRenameEnabled,
-	isSemanticTokensEnabled,
-	isSignatureHelpEnabled,
-	isTypeDefinitionEnabled,
-} from '@volar/language-core';
+// import {
+// 	CodeInformation,
+// 	Language,
+// 	isCallHierarchyEnabled,
+// 	isCodeActionsEnabled,
+// 	isCompletionEnabled,
+// 	isDefinitionEnabled,
+// 	isFormattingEnabled,
+// 	isHighlightEnabled,
+// 	isHoverEnabled,
+// 	isImplementationEnabled,
+// 	isInlayHintsEnabled,
+// 	isLinkedEditingEnabled,
+// 	isReferencesEnabled,
+// 	isRenameEnabled,
+// 	isSemanticTokensEnabled,
+// 	isSignatureHelpEnabled,
+// 	isTypeDefinitionEnabled,
+// } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { dedupeDocumentSpans } from './dedupe';
 import { getServiceScript, notEmpty } from './utils';
 import { toGeneratedOffsets, toGeneratedOffset, toSourceOffset, transformCallHierarchyItem, transformDiagnostic, transformDocumentSpan, transformFileTextChanges, transformSpan, transformTextChange, transformTextSpan } from './transform';
+import { isFormattingEnabled, isRenameEnabled, isLinkedEditingEnabled, isCallHierarchyEnabled, isCodeActionsEnabled, isHoverEnabled, isSignatureHelpEnabled, isHighlightEnabled, isSemanticTokensEnabled, isDefinitionEnabled, isReferencesEnabled, isTypeDefinitionEnabled, isImplementationEnabled, isCompletionEnabled, isInlayHintsEnabled } from '@volar/language-core/lib/editorFeatures';
+import type { Language, CodeInformation } from '@volar/language-core/lib/types';
 
 const windowsPathReg = /\\/g;
 

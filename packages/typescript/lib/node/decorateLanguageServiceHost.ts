@@ -1,6 +1,7 @@
-import type { Language } from '@volar/language-core';
+// import type { Language } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { createResolveModuleName } from '../resolveModuleName';
+import type { Language } from '@volar/language-core/lib/types';
 
 export function decorateLanguageServiceHost(
 	ts: typeof import('typescript'),

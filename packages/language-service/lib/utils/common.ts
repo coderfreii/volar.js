@@ -1,6 +1,8 @@
+import type { CodeInformation } from '@volar/language-core/lib/types';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
-import type { CodeInformation, SourceMap } from '@volar/language-core';
+import type { SourceMap } from '@volar/source-map';
+// import type { CodeInformation, SourceMap } from '@volar/language-core';
 
 export function findOverlapCodeRange(
 	start: number,

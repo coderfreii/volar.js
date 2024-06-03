@@ -1,9 +1,11 @@
-import { isDocumentLinkEnabled, isRenameEnabled, resolveRenameEditText, type CodeInformation } from '@volar/language-core';
+// import { isDocumentLinkEnabled, isRenameEnabled, resolveRenameEditText, type CodeInformation } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import { URI } from 'vscode-uri';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { LanguageServiceContext } from '../types';
 import { notEmpty } from './common';
+import { isDocumentLinkEnabled, isRenameEnabled, resolveRenameEditText } from '@volar/language-core/lib/editorFeatures';
+import type { CodeInformation } from '@volar/language-core/lib/types';
 
 export function transformDocumentLinkTarget(_target: string, context: LanguageServiceContext) {
 	let target = URI.parse(_target);

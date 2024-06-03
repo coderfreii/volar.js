@@ -1,15 +1,10 @@
-import { FileType } from '@volar/language-service';
+// import { FileType } from '@volar/language-service';
 import * as vscode from 'vscode-languageserver/browser';
 import { URI } from 'vscode-uri';
 import httpSchemaRequestHandler from './lib/schemaRequestHandlers/http';
 import { createServerBase } from './lib/server';
 import { FsReadDirectoryRequest, FsReadFileRequest, FsStatRequest } from './protocol';
-
-export * from 'vscode-languageserver/browser';
-export * from './index';
-export * from './lib/project/simpleProject';
-export * from './lib/project/typescriptProject';
-export * from './lib/server';
+import { FileType } from '@volar/language-service/lib/types';
 
 export function createConnection() {
 

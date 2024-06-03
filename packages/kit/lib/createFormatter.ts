@@ -1,9 +1,13 @@
-import { FormattingOptions, LanguagePlugin, LanguageServicePlugin, createLanguage, createLanguageService, createUriMap } from '@volar/language-service';
 import * as ts from 'typescript';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { createServiceEnvironment } from './createServiceEnvironment';
-
+import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import { createLanguage } from '@volar/language-core';
+import type { LanguageServicePlugin } from '@volar/language-service/lib/types';
+import { createUriMap } from '@volar/language-service/lib/utils/uriMap';
+import { createLanguageService } from '@volar/language-service/lib/languageService';
+import {FormattingOptions}  from 'vscode-languageserver-types'
 export function createFormatter(
 	languages: LanguagePlugin<URI>[],
 	services: LanguageServicePlugin[]

@@ -1,10 +1,15 @@
-import { LanguagePlugin, LanguageService, LanguageServiceEnvironment, ProviderResult, UriMap, createLanguage, createLanguageService, createUriMap } from '@volar/language-service';
 import { TypeScriptProjectHost, createLanguageServiceHost, createSys, resolveFileLanguageId } from '@volar/typescript';
 import * as path from 'path-browserify';
 import type * as ts from 'typescript';
 import * as vscode from 'vscode-languageserver';
 import type { URI } from 'vscode-uri';
 import type { LanguageServer } from '../types';
+import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import { createLanguage } from '@volar/language-core';
+import type { LanguageServiceEnvironment, ProviderResult } from '@volar/language-service/lib/types';
+import { type UriMap, createUriMap } from '@volar/language-service/lib/utils/uriMap';
+import { createLanguageService, type LanguageService } from '@volar/language-service/lib/languageService';
+
 
 export interface TypeScriptLS {
 	askedFiles: UriMap<boolean>;

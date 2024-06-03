@@ -1,4 +1,4 @@
-import { isHoverEnabled } from '@volar/language-core';
+// import { isHoverEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
@@ -7,6 +7,7 @@ import { isInsideRange } from '../utils/common';
 import { languageFeatureWorker } from '../utils/featureWorkers';
 import { transformMarkdown } from '../utils/transform';
 import { errorMarkups } from './provideDiagnostics';
+import { isHoverEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

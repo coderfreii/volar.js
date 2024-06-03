@@ -1,4 +1,4 @@
-import type { Language, SourceScript, VirtualCode } from '@volar/language-core';
+// import type { Language, SourceScript, VirtualCode } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type * as ts from 'typescript';
@@ -6,8 +6,9 @@ import type { LinkedCodeMapWithDocument, SourceMapWithDocuments } from './docume
 import type { LanguageService } from './languageService';
 import type { URI } from 'vscode-uri';
 import type { UriMap } from './utils/uriMap';
+import type { Language, VirtualCode, SourceScript } from '@volar/language-core/lib/types';
 
-export type * from 'vscode-languageserver-protocol';
+// export type * from 'vscode-languageserver-protocol';
 
 export interface LanguageServiceEnvironment {
 	workspaceFolders: URI[];

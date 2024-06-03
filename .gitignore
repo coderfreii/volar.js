@@ -10,3 +10,6 @@ packages/*/*.map
 packages/*/lib/**/*.d.ts
 packages/*/lib/**/*.js
 packages/*/lib/**/*.map
+packages/*/tests/**/*.d.ts
+packages/*/tests/**/*.js
+packages/*/tests/**/*.map

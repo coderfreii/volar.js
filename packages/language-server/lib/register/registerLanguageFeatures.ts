@@ -1,17 +1,19 @@
-import * as embedded from '@volar/language-service';
 import * as vscode from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import { AutoInsertRequest, FindFileReferenceRequest } from '../../protocol';
 import type { LanguageServer } from '../types';
+import type { LanguageService } from '@volar/language-service/lib/languageService';
+import { mergeWorkspaceEdits } from '@volar/language-service/lib/features/provideRenameEdits';
+import type { CancellationToken } from 'vscode-languageserver';
 
 export function registerLanguageFeatures(server: LanguageServer) {
 	let lastCompleteUri: string;
-	let lastCompleteLs: embedded.LanguageService;
-	let lastCodeLensLs: embedded.LanguageService;
-	let lastCodeActionLs: embedded.LanguageService;
-	let lastCallHierarchyLs: embedded.LanguageService;
-	let lastDocumentLinkLs: embedded.LanguageService;
-	let lastInlayHintLs: embedded.LanguageService;
+	let lastCompleteLs: LanguageService;
+	let lastCodeLensLs: LanguageService;
+	let lastCodeActionLs: LanguageService;
+	let lastCallHierarchyLs: LanguageService;
+	let lastDocumentLinkLs: LanguageService;
+	let lastInlayHintLs: LanguageService;
 
 	server.connection.onDocumentFormatting(async (params, token) => {
 		const uri = URI.parse(params.textDocument.uri);
@@ -289,7 +291,7 @@ export function registerLanguageFeatures(server: LanguageServer) {
 		}));
 		const edits = _edits.filter((edit): edit is NonNullable<typeof edit> => !!edit);
 		if (edits.length) {
-			embedded.mergeWorkspaceEdits(edits[0], ...edits.slice(1));
+			mergeWorkspaceEdits(edits[0], ...edits.slice(1));
 			return edits[0];
 		}
 		return null;
@@ -301,7 +303,7 @@ export function registerLanguageFeatures(server: LanguageServer) {
 		});
 	});
 
-	function worker<T>(uri: URI, token: embedded.CancellationToken, cb: (languageService: embedded.LanguageService) => T) {
+	function worker<T>(uri: URI, token: CancellationToken, cb: (languageService: LanguageService) => T) {
 		return new Promise<T | undefined>(resolve => {
 			const timeout = setTimeout(async () => {
 				clearTimeout(timeout);

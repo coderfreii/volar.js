@@ -1,8 +1,11 @@
-import { FileMap, Language, TypeScriptExtraServiceScript, forEachEmbeddedCode } from '@volar/language-core';
+// import { FileMap, Language, TypeScriptExtraServiceScript, forEachEmbeddedCode } from '@volar/language-core';
 import * as path from 'path-browserify';
 import type * as ts from 'typescript';
 import { createResolveModuleName } from '../resolveModuleName';
 import type { createSys } from './createSys';
+import { forEachEmbeddedCode } from '@volar/language-core';
+import type { Language, TypeScriptExtraServiceScript } from '@volar/language-core/lib/types';
+import { FileMap } from '@volar/language-core/lib/utils';
 
 export interface TypeScriptProjectHost extends Pick<
 	ts.LanguageServiceHost,

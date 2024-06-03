@@ -1,5 +1,4 @@
-import { isCodeActionsEnabled } from '@volar/language-core';
-import type * as vscode from 'vscode-languageserver-protocol';
+// import { isCodeActionsEnabled } from '@volar/language-core';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';
@@ -8,30 +7,32 @@ import * as dedupe from '../utils/dedupe';
 import { languageFeatureWorker } from '../utils/featureWorkers';
 import { transformLocations, transformWorkspaceEdit } from '../utils/transform';
 import type { ServiceDiagnosticData } from './provideDiagnostics';
+import { isCodeActionsEnabled } from '@volar/language-core/lib/editorFeatures';
+import type { CodeAction, CodeActionContext, Range } from 'vscode-languageserver-types';
 
 export interface ServiceCodeActionData {
 	uri: string;
 	version: number;
-	original: Pick<vscode.CodeAction, 'data' | 'edit'>;
+	original: Pick<CodeAction, 'data' | 'edit'>;
 	pluginIndex: number;
 }
 
 export function register(context: LanguageServiceContext) {
 
-	return async (uri: URI, range: vscode.Range, codeActionContext: vscode.CodeActionContext, token = NoneCancellationToken) => {
+	return async (uri: URI, range: Range, codeActionContext: CodeActionContext, token = NoneCancellationToken) => {
 		const sourceScript = context.language.scripts.get(uri);
 		if (!sourceScript) {
 			return;
 		}
 
-		const transformedCodeActions = new WeakSet<vscode.CodeAction>();
+		const transformedCodeActions = new WeakSet<CodeAction>();
 
 		return await languageFeatureWorker(
 			context,
 			uri,
 			() => ({ range, codeActionContext }),
 			function* (map) {
-				const _codeActionContext: vscode.CodeActionContext = {
+				const _codeActionContext: CodeActionContext = {
 					diagnostics: transformLocations(
 						codeActionContext.diagnostics,
 						range => map.getGeneratedRange(range),

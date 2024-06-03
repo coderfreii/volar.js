@@ -1,4 +1,5 @@
-import type { LanguagePlugin, SourceScript } from '@volar/language-core';
+
+import type { LanguagePlugin, SourceScript } from '@volar/language-core/lib/types';
 import type * as ts from 'typescript';
 
 export function createResolveModuleName<T>(

@@ -1,4 +1,4 @@
-import { isInlayHintsEnabled } from '@volar/language-core';
+// import { isInlayHintsEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
@@ -6,6 +6,7 @@ import { NoneCancellationToken } from '../utils/cancellation';
 import { findOverlapCodeRange, notEmpty } from '../utils/common';
 import { languageFeatureWorker } from '../utils/featureWorkers';
 import { transformTextEdit } from '../utils/transform';
+import { isInlayHintsEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export interface InlayHintData {
 	uri: string;

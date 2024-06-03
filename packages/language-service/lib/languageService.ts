@@ -1,5 +1,3 @@
-import type { CodeInformation, LinkedCodeMap, SourceMap } from '@volar/language-core';
-import { isDefinitionEnabled, isImplementationEnabled, isTypeDefinitionEnabled, type Language } from '@volar/language-core';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -39,6 +37,10 @@ import * as documentLinkResolve from './features/resolveDocumentLink';
 import * as inlayHintResolve from './features/resolveInlayHint';
 import type { LanguageServicePlugin, LanguageServiceContext, LanguageServiceEnvironment } from './types';
 import { UriMap, createUriMap } from './utils/uriMap';
+import { isDefinitionEnabled, isTypeDefinitionEnabled, isImplementationEnabled } from '@volar/language-core/lib/editorFeatures';
+import type { LinkedCodeMap } from '@volar/language-core/lib/linkedCodeMap';
+import type { Language, CodeInformation } from '@volar/language-core/lib/types';
+import type { SourceMap } from '@volar/source-map';
 
 export type LanguageService = ReturnType<typeof createLanguageService>;
 

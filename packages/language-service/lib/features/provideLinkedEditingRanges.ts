@@ -1,10 +1,11 @@
-import { isLinkedEditingEnabled } from '@volar/language-core';
+// import { isLinkedEditingEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';
 import { notEmpty } from '../utils/common';
 import { languageFeatureWorker } from '../utils/featureWorkers';
+import { isLinkedEditingEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

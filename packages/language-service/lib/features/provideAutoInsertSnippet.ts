@@ -1,4 +1,4 @@
-import { isAutoInsertEnabled } from '@volar/language-core';
+import { isAutoInsertEnabled } from '@volar/language-core/lib/editorFeatures';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';

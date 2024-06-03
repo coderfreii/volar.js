@@ -1,4 +1,4 @@
-import { isSymbolsEnabled } from '@volar/language-core';
+// import { isSymbolsEnabled } from '@volar/language-core';d
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
@@ -6,6 +6,7 @@ import { NoneCancellationToken } from '../utils/cancellation';
 import { isInsideRange, notEmpty } from '../utils/common';
 import { documentFeatureWorker } from '../utils/featureWorkers';
 import { transformDocumentSymbol } from '../utils/transform';
+import { isSymbolsEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

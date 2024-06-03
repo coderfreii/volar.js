@@ -1,4 +1,4 @@
-import { isCallHierarchyEnabled } from '@volar/language-core';
+import { isCallHierarchyEnabled } from '@volar/language-core/lib/editorFeatures';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';

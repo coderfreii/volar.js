@@ -1,4 +1,4 @@
-import { FileType, LanguagePlugin, LanguageServiceEnvironment, ProviderResult, UriMap, createUriMap } from '@volar/language-service';
+// import { FileType,  LanguageServiceEnvironment, ProviderResult, UriMap, createUriMap } from '@volar/language-service';
 import * as path from 'path-browserify';
 import type * as ts from 'typescript';
 import * as vscode from 'vscode-languageserver';
@@ -7,6 +7,9 @@ import type { LanguageServer, Project } from '../types';
 import { getInferredCompilerOptions } from './inferredCompilerOptions';
 import { createLanguageServiceEnvironment } from './simpleProject';
 import { ProjectExposeContext, createTypeScriptLS, type TypeScriptLS } from './typescriptProjectLs';
+import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import { type LanguageServiceEnvironment, type ProviderResult, FileType } from '@volar/language-service/lib/types';
+import { createUriMap, type UriMap } from '@volar/language-service/lib/utils/uriMap';
 
 const rootTsConfigNames = ['tsconfig.json', 'jsconfig.json'];
 

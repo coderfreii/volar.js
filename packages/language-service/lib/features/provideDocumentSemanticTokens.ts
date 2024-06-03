@@ -1,4 +1,4 @@
-import { isSemanticTokensEnabled } from '@volar/language-core';
+// import { isSemanticTokensEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { SemanticToken, LanguageServiceContext } from '../types';
@@ -6,6 +6,7 @@ import { SemanticTokensBuilder } from '../utils/SemanticTokensBuilder';
 import { NoneCancellationToken } from '../utils/cancellation';
 import { findOverlapCodeRange, notEmpty } from '../utils/common';
 import { languageFeatureWorker } from '../utils/featureWorkers';
+import { isSemanticTokensEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

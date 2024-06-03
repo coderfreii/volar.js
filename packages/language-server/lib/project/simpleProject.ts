@@ -1,7 +1,11 @@
-import type { LanguagePlugin, LanguageServiceEnvironment } from '@volar/language-service';
-import { LanguageService, createLanguage, createLanguageService, createUriMap } from '@volar/language-service';
 import type { URI } from 'vscode-uri';
 import type { LanguageServer, Project } from '../types';
+import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import { createLanguage } from '@volar/language-core';
+import type { LanguageServiceEnvironment } from '@volar/language-service/lib/types';
+import { createUriMap } from '@volar/language-service/lib/utils/uriMap';
+import { createLanguageService, type LanguageService } from '@volar/language-service/lib/languageService';
+
 
 export function createSimpleProject(languagePlugins: LanguagePlugin<URI>[]): Project {
 	let languageService: LanguageService | undefined;

@@ -1,4 +1,4 @@
-import { CodeInformation, SourceMap, SourceScript, VirtualCode, forEachEmbeddedCode, isFormattingEnabled, updateVirtualCodeMapOfMap } from '@volar/language-core';
+// import { CodeInformation, SourceMap, SourceScript, VirtualCode, forEachEmbeddedCode, isFormattingEnabled, updateVirtualCodeMapOfMap } from '@volar/language-core';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -9,6 +9,10 @@ import { NoneCancellationToken } from '../utils/cancellation';
 import { findOverlapCodeRange, stringToSnapshot } from '../utils/common';
 import { getEmbeddedFilesByLevel as getEmbeddedCodesByLevel } from '../utils/featureWorkers';
 import { createUriMap } from '../utils/uriMap';
+import { forEachEmbeddedCode, updateVirtualCodeMapOfMap } from '@volar/language-core';
+import { isFormattingEnabled } from '@volar/language-core/lib/editorFeatures';
+import type { SourceScript, VirtualCode, CodeInformation } from '@volar/language-core/lib/types';
+import type { SourceMap } from '@volar/source-map';
 
 export function register(context: LanguageServiceContext) {
 

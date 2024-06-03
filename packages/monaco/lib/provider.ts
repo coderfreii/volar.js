@@ -6,8 +6,7 @@ import type {
 	Diagnostic,
 	DocumentLink,
 	InlayHint,
-	LanguageService,
-} from '@volar/language-service';
+} from 'vscode-languageserver'
 import {
 	fromCompletionContext,
 	fromFormattingOptions,
@@ -38,6 +37,8 @@ import {
 import type { Uri, editor, languages } from 'monaco-types';
 import type { URI } from 'vscode-uri';
 import { markers } from './markers.js';
+
+import type {LanguageService} from '@volar/language-service/lib/languageService.js'
 
 export async function createLanguageFeaturesProvider(
 	worker: editor.MonacoWebWorker<LanguageService>,

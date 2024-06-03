@@ -1,17 +1,22 @@
-import {
-	Language,
-	LanguagePlugin,
-	LanguageServicePlugin,
-	createLanguageService as _createLanguageService,
-	createLanguage,
-	createUriMap,
-	type LanguageService,
-	type LanguageServiceEnvironment,
-} from '@volar/language-service';
+import { createLanguage } from '@volar/language-core';
+import type { Language, LanguagePlugin } from '@volar/language-core/lib/types.js';
+import type { LanguageServiceEnvironment, LanguageServicePlugin } from '@volar/language-service/lib/types.js';
+
+import {  	createLanguageService as _createLanguageService } from '@volar/language-service/lib/languageService.js';
+import { createUriMap } from '@volar/language-service/lib/utils/uriMap.js';
+// import {
+// 	LanguageServicePlugin,
+// 	createLanguageService as _createLanguageService,
+// 	createLanguage,
+// 	createUriMap,
+// 	type LanguageService,
+// 	type LanguageServiceEnvironment,
+// } from '@volar/language-service';
 import { createLanguageServiceHost, createSys, resolveFileLanguageId } from '@volar/typescript';
 import type * as monaco from 'monaco-types';
 import type * as ts from 'typescript';
 import type { URI } from 'vscode-uri';
+import type { LanguageService } from '@volar/language-service/lib/languageService.js';
 
 export * from '@volar/language-service';
 export * from './lib/ata.js';

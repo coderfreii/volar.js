@@ -1,9 +1,12 @@
-import { FileMap, LanguagePlugin, createLanguage } from '@volar/language-core';
+
 import type * as ts from 'typescript';
 import { resolveFileLanguageId } from '../common';
 import { decorateLanguageService } from '../node/decorateLanguageService';
 import { decorateLanguageServiceHost, searchExternalFiles } from '../node/decorateLanguageServiceHost';
 import { arrayItemsEqual } from './createLanguageServicePlugin';
+import { createLanguage } from '@volar/language-core';
+import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import { FileMap } from '@volar/language-core/lib/utils';
 
 const externalFiles = new WeakMap<ts.server.Project, string[]>();
 const decoratedLanguageServices = new WeakSet<ts.LanguageService>();

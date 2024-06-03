@@ -1,4 +1,4 @@
-import type { VolarInitializeResult } from '@volar/language-server';
+import type { VolarInitializeResult } from '@volar/language-server/lib/types';
 import { AutoInsertRequest } from '@volar/language-server/protocol';
 import * as vscode from 'vscode';
 import type { BaseLanguageClient } from 'vscode-languageclient';

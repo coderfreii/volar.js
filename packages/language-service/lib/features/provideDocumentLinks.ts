@@ -1,4 +1,4 @@
-import { isDocumentLinkEnabled } from '@volar/language-core';
+// import { isDocumentLinkEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
@@ -6,6 +6,7 @@ import { NoneCancellationToken } from '../utils/cancellation';
 import { notEmpty } from '../utils/common';
 import { documentFeatureWorker } from '../utils/featureWorkers';
 import { transformDocumentLinkTarget } from '../utils/transform';
+import { isDocumentLinkEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export interface DocumentLinkData {
 	uri: string;

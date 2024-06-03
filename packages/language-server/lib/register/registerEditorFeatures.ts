@@ -1,5 +1,5 @@
-import type { CodeMapping, VirtualCode } from '@volar/language-core';
-import { createUriMap, type DataTransferItem } from '@volar/language-service';
+import { createUriMap} from '@volar/language-service/lib/utils/uriMap';
+import { type DataTransferItem } from '@volar/language-service/lib/types';
 import type * as ts from 'typescript';
 import {
 	DocumentDropRequest,
@@ -16,6 +16,7 @@ import {
 } from '../../protocol';
 import type { LanguageServer } from '../types';
 import { URI } from 'vscode-uri';
+import type { VirtualCode, CodeMapping } from '@volar/language-core/lib/types';
 
 export function registerEditorFeatures(server: LanguageServer) {
 

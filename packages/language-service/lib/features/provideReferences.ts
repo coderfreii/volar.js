@@ -1,4 +1,4 @@
-import { isReferencesEnabled } from '@volar/language-core';
+// import { isReferencesEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
@@ -6,6 +6,7 @@ import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';
 import * as dedupe from '../utils/dedupe';
 import { languageFeatureWorker } from '../utils/featureWorkers';
+import { isReferencesEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

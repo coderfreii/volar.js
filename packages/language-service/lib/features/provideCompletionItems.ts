@@ -1,4 +1,4 @@
-import { isCompletionEnabled, type CodeInformation } from '@volar/language-core';
+// import { isCompletionEnabled, type CodeInformation } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
@@ -7,6 +7,8 @@ import type { LanguageServicePluginInstance, LanguageServiceContext } from '../t
 import { NoneCancellationToken } from '../utils/cancellation';
 import { forEachEmbeddedDocument } from '../utils/featureWorkers';
 import { transformCompletionList } from '../utils/transform';
+import { isCompletionEnabled } from '@volar/language-core/lib/editorFeatures';
+import type { CodeInformation } from '@volar/language-core/lib/types';
 
 export interface ServiceCompletionData {
 	uri: string;

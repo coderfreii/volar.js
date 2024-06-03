@@ -1,4 +1,4 @@
-import { isDiagnosticsEnabled, shouldReportDiagnostics, type CodeInformation } from '@volar/language-core';
+// import { isDiagnosticsEnabled, shouldReportDiagnostics, type CodeInformation } from '@volar/language-core';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
@@ -10,6 +10,8 @@ import { sleep } from '../utils/common';
 import * as dedupe from '../utils/dedupe';
 import { documentFeatureWorker } from '../utils/featureWorkers';
 import { createUriMap } from '../utils/uriMap';
+import { isDiagnosticsEnabled, shouldReportDiagnostics } from '@volar/language-core/lib/editorFeatures';
+import type { CodeInformation } from '@volar/language-core/lib/types';
 
 export function updateRange(
 	range: vscode.Range,

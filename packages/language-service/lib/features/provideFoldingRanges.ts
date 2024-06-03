@@ -1,4 +1,4 @@
-import { isFoldingRangesEnabled } from '@volar/language-core';
+// import { isFoldingRangesEnabled } from '@volar/language-core';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';
@@ -6,6 +6,7 @@ import { documentFeatureWorker } from '../utils/featureWorkers';
 import { transformFoldingRanges } from '../utils/transform';
 
 import type * as _ from 'vscode-languageserver-protocol';
+import { isFoldingRangesEnabled } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

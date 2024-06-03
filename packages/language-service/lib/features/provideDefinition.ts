@@ -1,4 +1,4 @@
-import type { CodeInformation } from '@volar/language-core';
+// import type { CodeInformation } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
@@ -8,6 +8,7 @@ import { NoneCancellationToken } from '../utils/cancellation';
 import { notEmpty } from '../utils/common';
 import * as dedupe from '../utils/dedupe';
 import { languageFeatureWorker } from '../utils/featureWorkers';
+import type { CodeInformation } from '@volar/language-core/lib/types';
 
 export function register(
 	context: LanguageServiceContext,

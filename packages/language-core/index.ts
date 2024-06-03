@@ -1,9 +1,3 @@
-export * from '@volar/source-map';
-export * from './lib/editorFeatures';
-export * from './lib/linkedCodeMap';
-export * from './lib/types';
-export * from './lib/utils';
-
 import { SourceMap } from '@volar/source-map';
 import type * as ts from 'typescript';
 import { LinkedCodeMap } from './lib/linkedCodeMap';

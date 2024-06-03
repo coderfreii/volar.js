@@ -1,11 +1,14 @@
-import * as _ from '@volar/language-server/node';
+import * as _  from 'vscode-languageserver';
+import * as __ from '@volar/language-core/lib/types';
+import * as ___ from 'vscode-languageserver/node';
+
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { SourceMap, forEachEmbeddedCode } from '@volar/language-core';
-
+import { forEachEmbeddedCode } from '@volar/language-core';
+import { SourceMap } from '@volar/source-map';
 export type LanguageServerHandle = ReturnType<typeof startLanguageServer>;
 
 export function startLanguageServer(serverModule: string, cwd?: string | URL) {
@@ -20,7 +23,7 @@ export function startLanguageServer(serverModule: string, cwd?: string | URL) {
 			stdio: 'pipe',
 		}
 	);
-	const connection = _.createProtocolConnection(
+	const connection = ___.createProtocolConnection(
 		childProcess.stdout!,
 		childProcess.stdin!
 	);
@@ -418,7 +421,7 @@ export function startLanguageServer(serverModule: string, cwd?: string | URL) {
 	}
 }
 
-export function* printSnapshots(sourceScript: _.SourceScript<URI>) {
+export function* printSnapshots(sourceScript: __.SourceScript<URI>) {
 	if (sourceScript.generated) {
 		let lastId = 0;
 		for (const file of forEachEmbeddedCode(sourceScript.generated.root)) {
@@ -433,9 +436,9 @@ export function* printSnapshots(sourceScript: _.SourceScript<URI>) {
 
 export function* printSnapshot(
 	sourceScript: {
-		snapshot: _.SourceScript<URI>['snapshot'];
+		snapshot: __.SourceScript<URI>['snapshot'];
 	},
-	file: _.VirtualCode,
+	file:__.VirtualCode,
 ) {
 
 	const sourceCode = sourceScript.snapshot.getText(0, sourceScript.snapshot.getLength());
@@ -456,7 +459,7 @@ export function* printSnapshot(
 		const lineHead = `[${i + 1}]`;
 		yield [lineHead, normalizeLogText(line)].join(' ');
 		const logs: {
-			mapping: _.CodeMapping;
+			mapping: __.CodeMapping;
 			line: string;
 			lineOffset: number;
 			sourceOffset: number;

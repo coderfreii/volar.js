@@ -1,3 +1,6 @@
+export * as  vscodeLanguageclient from 'vscode-languageclient';
+
+
 import * as vscode from 'vscode';
 
 export { activate as activateAutoInsertion } from './lib/features/autoInsertion';
@@ -9,7 +12,7 @@ export { activate as activateTsConfigStatusItem } from './lib/features/tsconfig'
 export { activate as activateServerSys } from './lib/features/serverSys';
 export { activate as activateTsVersionStatusItem, getTsdk } from './lib/features/tsVersion';
 
-export * from 'vscode-languageclient';
+
 
 import type { BaseLanguageClient, Middleware } from 'vscode-languageclient';
 

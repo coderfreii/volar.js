@@ -1,4 +1,6 @@
-import type { FileChangeType, FileType, LanguageServiceEnvironment, Disposable, FileStat } from '@volar/language-service';
+import type { FileType, LanguageServiceEnvironment,FileStat } from '@volar/language-service/lib/types';
+import type { FileChangeType  } from 'vscode-languageserver-protocol';
+import type { Disposable  } from 'vscode-jsonrpc';
 import type * as ts from 'typescript';
 import * as path from 'path-browserify';
 import { matchFiles } from '../typescript/utilities';

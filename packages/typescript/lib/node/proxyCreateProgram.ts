@@ -1,8 +1,11 @@
-import { FileMap, Language, LanguagePlugin, createLanguage } from '@volar/language-core';
+// import { FileMap, Language, LanguagePlugin, createLanguage } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { createResolveModuleName } from '../resolveModuleName';
 import { decorateProgram } from './decorateProgram';
 import { resolveFileLanguageId } from '../common';
+import { createLanguage } from '@volar/language-core';
+import type { LanguagePlugin, Language } from '@volar/language-core/lib/types';
+import { FileMap } from '@volar/language-core/lib/utils';
 
 const arrayEqual = (a: readonly any[], b: readonly any[]) => {
 	if (a.length !== b.length) {

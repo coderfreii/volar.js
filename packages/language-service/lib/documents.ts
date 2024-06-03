@@ -1,6 +1,9 @@
-import { CodeInformation, CodeRangeKey, LinkedCodeMap, Mapping, SourceMap, VirtualCode, translateOffset } from '@volar/language-core';
+// import { CodeInformation, CodeRangeKey, LinkedCodeMap, Mapping, SourceMap, VirtualCode, translateOffset } from '@volar/language-core';
+import type { LinkedCodeMap } from '@volar/language-core/lib/linkedCodeMap';
+import type { CodeInformation, VirtualCode } from '@volar/language-core/lib/types';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
+import { type SourceMap, type Mapping, type CodeRangeKey, translateOffset } from '@volar/source-map';
 
 export class SourceMapWithDocuments {
 
