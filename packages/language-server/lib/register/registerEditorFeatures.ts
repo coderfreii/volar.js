@@ -1,4 +1,4 @@
-import { createUriMap} from '@volar/language-service/lib/utils/uriMap';
+import { createUriMap } from '@volar/language-service/lib/utils/uriMap';
 import { type DataTransferItem } from '@volar/language-service/lib/types';
 import type * as ts from 'typescript';
 import {
@@ -48,12 +48,12 @@ export function registerEditorFeatures(server: LanguageServer) {
 		}
 
 		const uri = URI.parse(textDocument.uri);
-		const languageService = (await server.project.getLanguageService(server, uri));
+		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
 		return languageService.doDocumentDrop(uri, position, dataTransferMap, token);
 	});
 	server.connection.onRequest(GetMatchTsConfigRequest.type, async params => {
 		const uri = URI.parse(params.uri);
-		const languageService = (await server.project.getLanguageService(server, uri));
+		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
 		if (languageService.context.language.typescript?.configFileName) {
 			const { configFileName, asScriptId } = languageService.context.language.typescript;
 			return { uri: asScriptId(configFileName).toString() };
@@ -61,7 +61,7 @@ export function registerEditorFeatures(server: LanguageServer) {
 	});
 	server.connection.onRequest(GetVirtualFileRequest.type, async document => {
 		const uri = URI.parse(document.uri);
-		const languageService = (await server.project.getLanguageService(server, uri));
+		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
 		const documentUri = URI.parse(document.uri);
 		const sourceScript = languageService.context.language.scripts.get(documentUri);
 		if (sourceScript?.generated) {
@@ -88,7 +88,7 @@ export function registerEditorFeatures(server: LanguageServer) {
 	});
 	server.connection.onRequest(GetVirtualCodeRequest.type, async params => {
 		const uri = URI.parse(params.fileUri);
-		const languageService = (await server.project.getLanguageService(server, uri));
+		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
 		const sourceScript = languageService.context.language.scripts.get(URI.parse(params.fileUri));
 		const virtualCode = sourceScript?.generated?.embeddedCodes.get(params.virtualCodeId);
 		if (virtualCode) {
@@ -102,52 +102,13 @@ export function registerEditorFeatures(server: LanguageServer) {
 			};
 		}
 	});
-	server.connection.onNotification(WriteVirtualFilesNotification.type, async params => {
-
-		const fsModeName = 'fs'; // avoid bundle
-		const fs: typeof import('fs') = await import(fsModeName);
-		const uri = URI.parse(params.uri);
-		const languageService = (await server.project.getLanguageService(server, uri));
-
-		if (languageService.context.language.typescript) {
-
-			const { languageServiceHost } = languageService.context.language.typescript;
-
-			for (const fileName of languageServiceHost.getScriptFileNames()) {
-				if (!fs.existsSync(fileName)) {
-					// global virtual files
-					const snapshot = languageServiceHost.getScriptSnapshot(fileName);
-					if (snapshot) {
-						fs.writeFile(fileName, snapshot.getText(0, snapshot.getLength()), () => { });
-					}
-				}
-				else {
-					const sourceScript = languageService.context.language.scripts.get(uri);
-					if (sourceScript?.generated) {
-						const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(sourceScript.generated.root);
-						if (serviceScript) {
-							const { snapshot } = serviceScript.code;
-							fs.writeFile(fileName + serviceScript.extension, snapshot.getText(0, snapshot.getLength()), () => { });
-						}
-						if (sourceScript.generated.languagePlugin.typescript?.getExtraServiceScripts) {
-							for (const extraServiceScript of sourceScript.generated.languagePlugin.typescript.getExtraServiceScripts(uri.toString(), sourceScript.generated.root)) {
-								const { snapshot } = extraServiceScript.code;
-								fs.writeFile(fileName, snapshot.getText(0, snapshot.getLength()), () => { });
-							}
-						}
-					}
-				}
-			}
-		}
-	});
 	server.connection.onRequest(LoadedTSFilesMetaRequest.type, async () => {
-
 		const sourceFilesData = new Map<ts.SourceFile, {
 			projectNames: string[];
 			size: number;
 		}>();
 
-		for (const languageService of await server.project.getExistingLanguageServices(server)) {
+		for (const languageService of await server.projectFacade.getExistingLanguageServices(server)) {
 			const tsLanguageService: ts.LanguageService | undefined = languageService.context.inject<any>('typescript/languageService');
 			const program = tsLanguageService?.getProgram();
 			if (program && languageService.context.language.typescript) {
@@ -202,31 +163,9 @@ export function registerEditorFeatures(server: LanguageServer) {
 
 		return result;
 	});
-	server.connection.onNotification(UpdateVirtualCodeStateNotification.type, async params => {
-		const uri = URI.parse(params.fileUri);
-		const languageService = await server.project.getLanguageService(server, uri);
-		const virtualFileUri = languageService.context.encodeEmbeddedDocumentUri(URI.parse(params.fileUri), params.virtualCodeId);
-		if (params.disabled) {
-			languageService.context.disabledEmbeddedDocumentUris.set(virtualFileUri, true);
-		}
-		else {
-			languageService.context.disabledEmbeddedDocumentUris.delete(virtualFileUri);
-		}
-	});
-	server.connection.onNotification(UpdateServicePluginStateNotification.type, async params => {
-		const uri = URI.parse(params.uri);
-		const languageService = await server.project.getLanguageService(server, uri);
-		const plugin = languageService.context.plugins[params.serviceId][1];
-		if (params.disabled) {
-			languageService.context.disabledServicePlugins.add(plugin);
-		}
-		else {
-			languageService.context.disabledServicePlugins.delete(plugin);
-		}
-	});
 	server.connection.onRequest(GetServicePluginsRequest.type, async params => {
 		const uri = URI.parse(params.uri);
-		const languageService = await server.project.getLanguageService(server, uri);
+		const languageService = await server.projectFacade.reolveLanguageServiceByUri(server, uri);
 		const result: GetServicePluginsRequest.ResponseType = [];
 		for (let pluginIndex = 0; pluginIndex < languageService.context.plugins.length; pluginIndex++) {
 			const plugin = languageService.context.plugins[pluginIndex];
@@ -238,5 +177,64 @@ export function registerEditorFeatures(server: LanguageServer) {
 			});
 		}
 		return result;
+	});
+	server.connection.onNotification(UpdateVirtualCodeStateNotification.type, async params => {
+		const uri = URI.parse(params.fileUri);
+		const languageService = await server.projectFacade.reolveLanguageServiceByUri(server, uri);
+		const virtualFileUri = languageService.context.encodeEmbeddedDocumentUri(URI.parse(params.fileUri), params.virtualCodeId);
+		if (params.disabled) {
+			languageService.context.disabledEmbeddedDocumentUris.set(virtualFileUri, true);
+		}
+		else {
+			languageService.context.disabledEmbeddedDocumentUris.delete(virtualFileUri);
+		}
+	});
+	server.connection.onNotification(UpdateServicePluginStateNotification.type, async params => {
+		const uri = URI.parse(params.uri);
+		const languageService = await server.projectFacade.reolveLanguageServiceByUri(server, uri);
+		const plugin = languageService.context.plugins[params.serviceId][1];
+		if (params.disabled) {
+			languageService.context.disabledServicePlugins.add(plugin);
+		}
+		else {
+			languageService.context.disabledServicePlugins.delete(plugin);
+		}
+	});
+	server.connection.onNotification(WriteVirtualFilesNotification.type, async params => {
+		const fsModeName = 'fs'; // avoid bundle
+		const fs: typeof import('fs') = await import(fsModeName);
+		const uri = URI.parse(params.uri);
+		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
+
+		if (languageService.context.language.typescript) {
+
+			const { languageServiceHost } = languageService.context.language.typescript;
+
+			for (const fileName of languageServiceHost.getScriptFileNames()) {
+				if (!fs.existsSync(fileName)) {
+					// global virtual files
+					const snapshot = languageServiceHost.getScriptSnapshot(fileName);
+					if (snapshot) {
+						fs.writeFile(fileName, snapshot.getText(0, snapshot.getLength()), () => { });
+					}
+				}
+				else {
+					const sourceScript = languageService.context.language.scripts.get(uri);
+					if (sourceScript?.generated) {
+						const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(sourceScript.generated.root);
+						if (serviceScript) {
+							const { snapshot } = serviceScript.code;
+							fs.writeFile(fileName + serviceScript.extension, snapshot.getText(0, snapshot.getLength()), () => { });
+						}
+						if (sourceScript.generated.languagePlugin.typescript?.getExtraServiceScripts) {
+							for (const extraServiceScript of sourceScript.generated.languagePlugin.typescript.getExtraServiceScripts(uri.toString(), sourceScript.generated.root)) {
+								const { snapshot } = extraServiceScript.code;
+								fs.writeFile(fileName, snapshot.getText(0, snapshot.getLength()), () => { });
+							}
+						}
+					}
+				}
+			}
+		}
 	});
 }

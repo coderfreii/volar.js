@@ -1,4 +1,3 @@
-// import { FileType } from '@volar/language-service';
 import * as fs from 'fs';
 import * as vscode from 'vscode-languageserver/node';
 import httpSchemaRequestHandler from './lib/schemaRequestHandlers/http';

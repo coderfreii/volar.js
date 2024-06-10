@@ -1,87 +1,144 @@
-// import { FileSystem, LanguageServicePlugin, createUriMap } from '@volar/language-service';
-import { SnapshotDocument } from '@volar/snapshot-document';
 import { configure as configureHttpRequests } from 'request-light';
 import * as vscode from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import { registerEditorFeatures } from './register/registerEditorFeatures';
 import { registerLanguageFeatures } from './register/registerLanguageFeatures';
-import type { Project, VolarInitializeResult } from './types';
+import type { ProjectFacade, VolarInitializeResult } from './types';
 import type { FileSystem, LanguageServicePlugin } from '@volar/language-service/lib/types';
 import { createUriMap } from '@volar/language-service/lib/utils/uriMap';
+import { fsWithCache } from './fs/fsWithCache';
+import { workspaceFolderWatcherSetup } from './watcher/workspaceFolderWatcher';
+import { configurationWatcherSetup } from './watcher/configurationWatcher';
+import { FileWatchersSetup } from './watcher/filerWatcher';
+import { documentsSetup } from './uri/documents';
+import { diagnosticsSetup } from './diagnostics';
+
+
+export type Holder = {
+	initializeParams: vscode.InitializeParams;
+	initializeResult: VolarInitializeResult;
+	projectFacade: ProjectFacade;
+	languageServicePlugins: LanguageServicePlugin[];
+	workspaceFolders: ReturnType<typeof createUriMap<boolean>>,
+	connection: vscode.Connection;
+	pullModelDiagnostics: boolean;
+};
+
 
 export function createServerBase(
 	connection: vscode.Connection,
 	fs: FileSystem,
 ) {
-	let semanticTokensReq = 0;
-	let documentUpdatedReq = 0;
 
-	const syncedDocumentParsedUriToUri = new Map<string, string>();
-	const didChangeWatchedFilesCallbacks = new Set<vscode.NotificationHandler<vscode.DidChangeWatchedFilesParams>>();
-	const didChangeConfigurationCallbacks = new Set<vscode.NotificationHandler<vscode.DidChangeConfigurationParams>>();
-	const configurations = new Map<string, Promise<any>>();
-	const documents = new vscode.TextDocuments({
-		create(uri, languageId, version, text) {
-			return new SnapshotDocument(uri, languageId, version, text);
-		},
-		update(snapshot, contentChanges, version) {
-			snapshot.update(contentChanges, version);
-			return snapshot;
-		},
-	});
-
-	documents.listen(connection);
-	documents.onDidOpen(({ document }) => {
-		const parsedUri = URI.parse(document.uri);
-		syncedDocumentParsedUriToUri.set(parsedUri.toString(), document.uri);
-	});
-	documents.onDidClose(e => {
-		syncedDocumentParsedUriToUri.delete(URI.parse(e.document.uri).toString());
-	});
-
-	const server = {
-		connection,
-		fs: createFsWithCache(fs),
+	const holder: Holder = {
 		initializeParams: undefined as unknown as vscode.InitializeParams,
 		initializeResult: undefined as unknown as VolarInitializeResult,
-		languageServicePlugins: [] as unknown as LanguageServicePlugin[],
-		project: undefined as unknown as Project,
-		pullModelDiagnostics: false,
-		documents,
+		projectFacade: undefined as unknown as ProjectFacade,
+		languageServicePlugins: undefined as unknown as LanguageServicePlugin[],
 		workspaceFolders: createUriMap<boolean>(),
-		getSyncedDocumentKey,
+		connection,
+		pullModelDiagnostics: false
+	};
+
+	const configurationWatcher = configurationWatcherSetup.setup(holder);
+	const workspaceFolderWatcher = workspaceFolderWatcherSetup.setup();
+	const FilerWatcher = FileWatchersSetup.setup(holder);
+	const documents = documentsSetup.setup(holder);
+
+
+	const server = {
+		documents,
+		fs: fsWithCache.setup(fs),
+		onDidChangeWatchedFiles: fsWithCache.onDidChangeWatchedFiles,
 		initialize,
 		initialized,
 		shutdown,
-		watchFiles,
-		getConfiguration,
-		onDidChangeConfiguration,
-		onDidChangeWatchedFiles,
-		clearPushDiagnostics,
-		refresh,
+		configurationWatcher,
+		filerWatcher: FilerWatcher,
+		get clearPushDiagnostics() {
+			return diagnosticGetter().clearPushDiagnostics;
+		},
+		get refresh() {
+			return diagnosticGetter().refresh;
+		},
+		get pullModelDiagnostics() {
+			return holder.pullModelDiagnostics;
+		},
+		get connection() {
+			return holder.connection;
+		},
+		get workspaceFolders() {
+			return holder.workspaceFolders;
+		},
+		get initializeParams() {
+			return holder.initializeParams;
+		},
+		get initializeResult() {
+			return holder.initializeResult;
+		},
+		get projectFacade() {
+			return holder.projectFacade;
+		},
+		get languageServicePlugins() {
+			return holder.languageServicePlugins;
+		},
 	};
+
+
+	const diagnostic = diagnosticsSetup.setup(holder, configurationWatcher, documents, server);
+
+	function diagnosticGetter() {
+		return diagnostic;
+	}
+
+
 	return server;
 
-	function getSyncedDocumentKey(uri: URI) {
-		const originalUri = syncedDocumentParsedUriToUri.get(uri.toString());
-		if (originalUri) {
-			return originalUri;
-		}
-	}
 
 	function initialize(
 		initializeParams: vscode.InitializeParams,
 		languageServicePlugins: LanguageServicePlugin[],
-		languageServices: Project,
+		projectFacade: ProjectFacade,
 		options?: {
 			pullModelDiagnostics?: boolean;
 		},
 	) {
-		server.initializeParams = initializeParams;
-		server.languageServicePlugins = languageServicePlugins;
-		server.project = languageServices;
-		server.pullModelDiagnostics = options?.pullModelDiagnostics ?? false;
+		holder.initializeParams = initializeParams;
+		holder.languageServicePlugins = languageServicePlugins;
+		holder.projectFacade = projectFacade;
+		holder.pullModelDiagnostics = options?.pullModelDiagnostics ?? false;
 
+
+		initializedWorkSpaceFolder(initializeParams);
+
+
+		setupInitializeResult();
+
+
+		registerEditorFeatures(server);
+		registerLanguageFeatures(server);
+
+
+		return server.initializeResult;
+	}
+
+	function initialized() {
+		workspaceFolderWatcher.registerWorkspaceFolderWatcher(holder);
+		configurationWatcher.registerConfigurationWatcher();
+		updateHttpSettings();
+		configurationWatcher.onDidChangeConfiguration(updateHttpSettings);
+	}
+
+	async function shutdown() {
+		server.projectFacade.reload();
+	}
+
+	async function updateHttpSettings() {
+		const httpSettings = await configurationWatcher.getConfiguration<{ proxyStrictSSL: boolean; proxy: string; }>('http');
+		configureHttpRequests(httpSettings?.proxy, httpSettings?.proxyStrictSSL ?? false);
+	}
+
+	function initializedWorkSpaceFolder(initializeParams: vscode.InitializeParams) {
 		if (initializeParams.workspaceFolders?.length) {
 			for (const folder of initializeParams.workspaceFolders) {
 				server.workspaceFolders.set(URI.parse(folder.uri), true);
@@ -93,12 +150,17 @@ export function createServerBase(
 		else if (initializeParams.rootPath) {
 			server.workspaceFolders.set(URI.file(initializeParams.rootPath), true);
 		}
+	}
 
-		const capabilitiesArr = server.languageServicePlugins.map(plugin => plugin.capabilities);
+	function setupInitializeResult() {
+		holder.initializeResult = { capabilities: {} };
 
-		server.initializeResult = { capabilities: {} };
+		const pluginCapabilities = resolveCapabilitiesFromPlugin();
+
 		server.initializeResult.capabilities = {
-			textDocumentSync: vscode.TextDocumentSyncKind.Incremental,
+			get textDocumentSync(): vscode.TextDocumentSyncKind {
+				return vscode.TextDocumentSyncKind.Incremental;
+			},
 			workspace: {
 				// #18
 				workspaceFolders: {
@@ -106,6 +168,20 @@ export function createServerBase(
 					changeNotifications: true,
 				},
 			},
+			...pluginCapabilities
+		};
+
+		if (!server.pullModelDiagnostics && server.initializeResult.capabilities.diagnosticProvider) {
+			server.initializeResult.capabilities.diagnosticProvider = undefined;
+			diagnostic.activateServerPushDiagnostics(holder.projectFacade);
+		}
+
+	}
+
+	function resolveCapabilitiesFromPlugin(): vscode.ServerCapabilities<any> {
+		const capabilitiesArr = server.languageServicePlugins.map(plugin => plugin.capabilities);
+
+		const capabilities = {
 			selectionRangeProvider: capabilitiesArr.some(data => data.selectionRangeProvider) ? true : undefined,
 			foldingRangeProvider: capabilitiesArr.some(data => data.foldingRangeProvider) ? true : undefined,
 			linkedEditingRangeProvider: capabilitiesArr.some(data => data.linkedEditingRangeProvider) ? true : undefined,
@@ -178,14 +254,14 @@ export function createServerBase(
 					moreTriggerCharacter: [...new Set(capabilitiesArr.map(data => data.documentOnTypeFormattingProvider?.triggerCharacters ?? []).flat())].slice(1),
 				}
 				: undefined,
+			autoInsertion: capabilitiesArr.some(data => data.autoInsertionProvider)
+				? wrapper()
+				:
+				undefined
 		};
 
-		if (!server.pullModelDiagnostics && server.initializeResult.capabilities.diagnosticProvider) {
-			server.initializeResult.capabilities.diagnosticProvider = undefined;
-			activateServerPushDiagnostics(languageServices);
-		}
 
-		if (capabilitiesArr.some(data => data.autoInsertionProvider)) {
+		function wrapper() {
 			const allTriggerCharacters: string[] = [];
 			const allConfigurationSections: (string | undefined)[] = [];
 			for (const data of capabilitiesArr) {
@@ -203,251 +279,12 @@ export function createServerBase(
 					}
 				}
 			}
-			server.initializeResult.autoInsertion = {
+			return {
 				triggerCharacters: allTriggerCharacters,
 				configurationSections: allConfigurationSections,
 			};
 		}
 
-		registerEditorFeatures(server);
-		registerLanguageFeatures(server);
-
-		return server.initializeResult;
+		return capabilities;
 	}
-
-	function initialized() {
-		registerWorkspaceFolderWatcher();
-		registerConfigurationWatcher();
-		updateHttpSettings();
-		onDidChangeConfiguration(updateHttpSettings);
-	}
-
-	async function shutdown() {
-		server.project.reload(server);
-	}
-
-	async function updateHttpSettings() {
-		const httpSettings = await getConfiguration<{ proxyStrictSSL: boolean; proxy: string; }>('http');
-		configureHttpRequests(httpSettings?.proxy, httpSettings?.proxyStrictSSL ?? false);
-	}
-
-	function getConfiguration<T>(section: string, scopeUri?: string): Promise<T | undefined> {
-		if (!server.initializeParams?.capabilities.workspace?.configuration) {
-			return Promise.resolve(undefined);
-		}
-		if (!scopeUri && server.initializeParams.capabilities.workspace?.didChangeConfiguration) {
-			if (!configurations.has(section)) {
-				configurations.set(section, getConfigurationWorker(section, scopeUri));
-			}
-			return configurations.get(section)!;
-		}
-		return getConfigurationWorker(section, scopeUri);
-	}
-
-	async function getConfigurationWorker(section: string, scopeUri?: string) {
-		return (await connection.workspace.getConfiguration({ scopeUri, section })) ?? undefined /* replace null to undefined */;
-	}
-
-	function onDidChangeConfiguration(cb: vscode.NotificationHandler<vscode.DidChangeConfigurationParams>) {
-		didChangeConfigurationCallbacks.add(cb);
-		return {
-			dispose() {
-				didChangeConfigurationCallbacks.delete(cb);
-			},
-		};
-	}
-
-	function onDidChangeWatchedFiles(cb: vscode.NotificationHandler<vscode.DidChangeWatchedFilesParams>) {
-		didChangeWatchedFilesCallbacks.add(cb);
-		return {
-			dispose: () => {
-				didChangeWatchedFilesCallbacks.delete(cb);
-			},
-		};
-	}
-
-	function createFsWithCache(fs: FileSystem): FileSystem {
-
-		const readFileCache = createUriMap<ReturnType<FileSystem['readFile']>>();
-		const statCache = createUriMap<ReturnType<FileSystem['stat']>>();
-		const readDirectoryCache = createUriMap<ReturnType<FileSystem['readDirectory']>>();
-
-		onDidChangeWatchedFiles(({ changes }) => {
-			for (const change of changes) {
-				const changeUri = URI.parse(change.uri);
-				const dir = URI.parse(change.uri.substring(0, change.uri.lastIndexOf('/')));
-				if (change.type === vscode.FileChangeType.Deleted) {
-					readFileCache.set(changeUri, undefined);
-					statCache.set(changeUri, undefined);
-					readDirectoryCache.delete(dir);
-				}
-				else if (change.type === vscode.FileChangeType.Changed) {
-					readFileCache.delete(changeUri);
-					statCache.delete(changeUri);
-				}
-				else if (change.type === vscode.FileChangeType.Created) {
-					readFileCache.delete(changeUri);
-					statCache.delete(changeUri);
-					readDirectoryCache.delete(dir);
-				}
-			}
-		});
-
-		return {
-			readFile: uri => {
-				if (!readFileCache.has(uri)) {
-					readFileCache.set(uri, fs.readFile(uri));
-				}
-				return readFileCache.get(uri)!;
-			},
-			stat: uri => {
-				if (!statCache.has(uri)) {
-					statCache.set(uri, fs.stat(uri));
-				}
-				return statCache.get(uri)!;
-			},
-			readDirectory: uri => {
-				if (!readDirectoryCache.has(uri)) {
-					readDirectoryCache.set(uri, fs.readDirectory(uri));
-				}
-				return readDirectoryCache.get(uri)!;
-			},
-		};
-	}
-
-	function registerConfigurationWatcher() {
-		const didChangeConfiguration = server.initializeParams?.capabilities.workspace?.didChangeConfiguration;
-		if (didChangeConfiguration) {
-			connection.onDidChangeConfiguration(params => {
-				configurations.clear();
-				for (const cb of didChangeConfigurationCallbacks) {
-					cb(params);
-				}
-			});
-			if (didChangeConfiguration.dynamicRegistration) {
-				connection.client.register(vscode.DidChangeConfigurationNotification.type);
-			}
-		}
-	}
-
-	function watchFiles(patterns: string[]) {
-		const didChangeWatchedFiles = server.initializeParams?.capabilities.workspace?.didChangeWatchedFiles;
-		const fileOperations = server.initializeParams?.capabilities.workspace?.fileOperations;
-		if (didChangeWatchedFiles) {
-			connection.onDidChangeWatchedFiles(e => {
-				for (const cb of didChangeWatchedFilesCallbacks) {
-					cb(e);
-				}
-			});
-			if (didChangeWatchedFiles.dynamicRegistration) {
-				connection.client.register(vscode.DidChangeWatchedFilesNotification.type, {
-					watchers: patterns.map(pattern => ({ globPattern: pattern })),
-				});
-			}
-		}
-		if (fileOperations?.dynamicRegistration && fileOperations.willRename) {
-			connection.client.register(vscode.WillRenameFilesRequest.type, {
-				filters: patterns.map(pattern => ({ pattern: { glob: pattern } })),
-			});
-		}
-	}
-
-	function registerWorkspaceFolderWatcher() {
-		if (server.initializeParams?.capabilities.workspace?.workspaceFolders) {
-			connection.workspace.onDidChangeWorkspaceFolders(e => {
-				for (const folder of e.added) {
-					server.workspaceFolders.set(URI.parse(folder.uri), true);
-				}
-				for (const folder of e.removed) {
-					server.workspaceFolders.delete(URI.parse(folder.uri));
-				}
-				server.project.reload(server);
-			});
-		}
-	}
-
-	function activateServerPushDiagnostics(projects: Project) {
-		documents.onDidChangeContent(({ document }) => {
-			pushAllDiagnostics(projects, document.uri);
-		});
-		documents.onDidClose(({ document }) => {
-			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-		});
-		onDidChangeConfiguration(() => refresh(projects));
-	}
-
-	function clearPushDiagnostics() {
-		if (!server.pullModelDiagnostics) {
-			for (const document of documents.all()) {
-				connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-			}
-		}
-	}
-
-	async function refresh(projects: Project) {
-
-		const req = ++semanticTokensReq;
-
-		if (!server.pullModelDiagnostics) {
-			await pushAllDiagnostics(projects);
-		}
-
-		const delay = 250;
-		await sleep(delay);
-
-		if (req === semanticTokensReq) {
-			if (server.initializeParams?.capabilities.workspace?.semanticTokens?.refreshSupport) {
-				connection.languages.semanticTokens.refresh();
-			}
-			if (server.initializeParams?.capabilities.workspace?.inlayHint?.refreshSupport) {
-				connection.languages.inlayHint.refresh();
-			}
-			if (server.pullModelDiagnostics && server.initializeParams?.capabilities.workspace?.diagnostics?.refreshSupport) {
-				connection.languages.diagnostics.refresh();
-			}
-		}
-	}
-
-	async function pushAllDiagnostics(projects: Project, docUri?: string) {
-		const req = ++documentUpdatedReq;
-		const delay = 250;
-		const token: vscode.CancellationToken = {
-			get isCancellationRequested() {
-				return req !== documentUpdatedReq;
-			},
-			onCancellationRequested: vscode.Event.None,
-		};
-		const changeDoc = docUri ? documents.get(docUri) : undefined;
-		const otherDocs = [...documents.all()].filter(doc => doc !== changeDoc);
-
-		if (changeDoc) {
-			await sleep(delay);
-			if (token.isCancellationRequested) {
-				return;
-			}
-			await pushDiagnostics(projects, changeDoc.uri, changeDoc.version, token);
-		}
-
-		for (const doc of otherDocs) {
-			await sleep(delay);
-			if (token.isCancellationRequested) {
-				break;
-			}
-			await pushDiagnostics(projects, doc.uri, doc.version, token);
-		}
-	}
-
-	async function pushDiagnostics(projects: Project, uriStr: string, version: number, cancel: vscode.CancellationToken) {
-		const uri = URI.parse(uriStr);
-		const languageService = (await projects.getLanguageService(server, uri));
-		const errors = await languageService.doValidation(uri, cancel, result => {
-			connection.sendDiagnostics({ uri: uriStr, diagnostics: result, version });
-		});
-
-		connection.sendDiagnostics({ uri: uriStr, diagnostics: errors, version });
-	}
-}
-
-function sleep(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
 }

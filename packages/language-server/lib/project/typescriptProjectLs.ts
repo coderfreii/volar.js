@@ -6,9 +6,10 @@ import type { URI } from 'vscode-uri';
 import type { LanguageServer } from '../types';
 import type { LanguagePlugin } from '@volar/language-core/lib/types';
 import { createLanguage } from '@volar/language-core';
-import type { LanguageServiceEnvironment, ProviderResult } from '@volar/language-service/lib/types';
+import type { LanguageServiceEnvironment } from '@volar/language-service/lib/types';
 import { type UriMap, createUriMap } from '@volar/language-service/lib/utils/uriMap';
 import { createLanguageService, type LanguageService } from '@volar/language-service/lib/languageService';
+import type { LanguagePluginSProvider } from './typescriptProject';
 
 
 export interface TypeScriptLS {
@@ -36,10 +37,7 @@ export async function createTypeScriptLS(
 	server: LanguageServer,
 	serviceEnv: LanguageServiceEnvironment,
 	workspaceFolder: URI,
-	getLanguagePlugins: (
-		serviceEnv: LanguageServiceEnvironment,
-		projectContext: ProjectExposeContext
-	) => ProviderResult<LanguagePlugin<URI>[]>,
+	languagePluginSProvider: LanguagePluginSProvider,
 	{
 		asUri,
 		asFileName,
@@ -68,8 +66,8 @@ export async function createTypeScriptLS(
 		},
 		getScriptSnapshot(fileName) {
 			const uri = asUri(fileName);
-			const documentKey = server.getSyncedDocumentKey(uri) ?? uri.toString();
-			const document = server.documents.get(documentKey);
+			const documentKey = server.documents.getSyncedDocumentKey(uri) ?? uri.toString();
+			const document = server.documents.documents.get(documentKey);
 			askedFiles.set(uri, true);
 			if (document) {
 				return document.getSnapshot();
@@ -83,15 +81,17 @@ export async function createTypeScriptLS(
 			return parsedCommandLine.projectReferences;
 		},
 	};
-	const languagePlugins = await getLanguagePlugins(serviceEnv, {
+
+	const languagePlugins = await languagePluginSProvider(serviceEnv, {
 		configFileName: typeof tsconfig === 'string' ? tsconfig : undefined,
 		projectHost,
 		sys,
 		asFileName,
 		asUri,
 	});
+	
 	const askedFiles = createUriMap<boolean>();
-	const docChangeWatcher = server.documents.onDidChangeContent(() => {
+	const docChangeWatcher = server.documents.documents.onDidChangeContent(() => {
 		projectVersion++;
 	});
 	const fileWatch = serviceEnv.onDidChangeWatchedFiles?.(params => {
@@ -112,10 +112,10 @@ export async function createTypeScriptLS(
 		createUriMap(sys.useCaseSensitiveFileNames),
 		uri => {
 			askedFiles.set(uri, true);
-			const documentUri = server.getSyncedDocumentKey(uri);
+			const documentUri = server.documents.getSyncedDocumentKey(uri);
 
 			let snapshot = documentUri
-				? server.documents.get(documentUri)?.getSnapshot()
+				? server.documents.documents.get(documentUri)?.getSnapshot()
 				: undefined;
 
 			if (!snapshot) {
@@ -223,10 +223,24 @@ async function createParsedCommandLine(
 		try {
 			if (typeof tsconfig === 'string') {
 				const config = ts.readJsonConfigFile(tsconfig, sys.readFile);
-				content = ts.parseJsonSourceFileConfigFileContent(config, sys, path.dirname(tsconfig), {}, tsconfig, undefined, extraFileExtensions);
+				content = ts.parseJsonSourceFileConfigFileContent(
+					config,
+					sys,
+					path.dirname(tsconfig),
+					{},
+					tsconfig,
+					undefined,
+					extraFileExtensions);
 			}
 			else {
-				content = ts.parseJsonConfigFileContent({ files: [] }, sys, workspacePath, tsconfig, workspacePath + '/jsconfig.json', undefined, extraFileExtensions);
+				content = ts.parseJsonConfigFileContent(
+					{ files: [] },
+					sys,
+					workspacePath,
+					tsconfig,
+					workspacePath + '/jsconfig.json',
+					undefined,
+					extraFileExtensions);
 			}
 			// fix https://github.com/johnsoncodehk/volar/issues/1786
 			// https://github.com/microsoft/TypeScript/issues/30457

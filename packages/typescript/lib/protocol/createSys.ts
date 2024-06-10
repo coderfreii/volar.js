@@ -78,9 +78,6 @@ export function createSys(
 	});
 
 	return {
-		dispose() {
-			fileWatcher?.dispose();
-		},
 		args: sys?.args ?? [],
 		newLine: sys?.newLine ?? '\n',
 		useCaseSensitiveFileNames: caseSensitive,
@@ -106,6 +103,9 @@ export function createSys(
 				await Promise.all(promises);
 			}
 			return version;
+		},
+		dispose() {
+			fileWatcher?.dispose();
 		},
 	};
 
