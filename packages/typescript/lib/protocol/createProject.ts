@@ -1,4 +1,3 @@
-// import { FileMap, Language, TypeScriptExtraServiceScript, forEachEmbeddedCode } from '@volar/language-core';
 import * as path from 'path-browserify';
 import type * as ts from 'typescript';
 import { createResolveModuleName } from '../resolveModuleName';
@@ -7,7 +6,7 @@ import { forEachEmbeddedCode } from '@volar/language-core';
 import type { Language, TypeScriptExtraServiceScript } from '@volar/language-core/lib/types';
 import { FileMap } from '@volar/language-core/lib/utils';
 
-export interface TypeScriptProjectHost extends Pick<
+export interface TypeScriptProjectLanguageServiceHost extends Pick<
 	ts.LanguageServiceHost,
 	'getLocalizedDiagnosticMessages'
 	| 'getCurrentDirectory'
@@ -18,12 +17,12 @@ export interface TypeScriptProjectHost extends Pick<
 	| 'getScriptSnapshot'
 > { }
 
-export function createLanguageServiceHost<T>(
+export function createTsLanguageServiceHost<T>(
 	ts: typeof import('typescript'),
 	sys: ReturnType<typeof createSys> | ts.System,
 	language: Language<T>,
 	asScrpitId: (fileName: string) => T,
-	projectHost: TypeScriptProjectHost,
+	projectLanguageServiceHost: TypeScriptProjectLanguageServiceHost,
 ) {
 	const scriptVersions = new FileMap<{ lastVersion: number; map: WeakMap<ts.IScriptSnapshot, number>; }>(sys.useCaseSensitiveFileNames);
 
@@ -33,10 +32,10 @@ export function createLanguageServiceHost<T>(
 	let extraScriptRegistry = new FileMap<TypeScriptExtraServiceScript>(sys.useCaseSensitiveFileNames);
 	let lastTsVirtualFileSnapshots = new Set<ts.IScriptSnapshot>();
 	let lastOtherVirtualFileSnapshots = new Set<ts.IScriptSnapshot>();
-	let languageServiceHost: ts.LanguageServiceHost = {
+	let tsLanguageServiceHost: ts.LanguageServiceHost = {
 		...sys,
 		getCurrentDirectory() {
-			return projectHost.getCurrentDirectory();
+			return projectLanguageServiceHost.getCurrentDirectory();
 		},
 		useCaseSensitiveFileNames() {
 			return sys.useCaseSensitiveFileNames;
@@ -61,7 +60,7 @@ export function createLanguageServiceHost<T>(
 			return sys.readDirectory(dirName, extensions, excludes, includes, depth);
 		},
 		getCompilationSettings() {
-			const options = projectHost.getCompilationSettings();
+			const options = projectLanguageServiceHost.getCompilationSettings();
 			if (language.plugins.some(language => language.typescript?.extraFileExtensions.length)) {
 				options.allowNonTsExtensions ??= true;
 				if (!options.allowNonTsExtensions) {
@@ -70,8 +69,8 @@ export function createLanguageServiceHost<T>(
 			}
 			return options;
 		},
-		getLocalizedDiagnosticMessages: projectHost.getLocalizedDiagnosticMessages,
-		getProjectReferences: projectHost.getProjectReferences,
+		getLocalizedDiagnosticMessages: projectLanguageServiceHost.getLocalizedDiagnosticMessages,
+		getProjectReferences: projectLanguageServiceHost.getProjectReferences,
 		getDefaultLibFileName: options => {
 			try {
 				return ts.getDefaultLibFilePath(options);
@@ -137,7 +136,7 @@ export function createLanguageServiceHost<T>(
 
 	for (const plugin of language.plugins) {
 		if (plugin.typescript?.resolveLanguageServiceHost) {
-			languageServiceHost = plugin.typescript.resolveLanguageServiceHost(languageServiceHost);
+			tsLanguageServiceHost = plugin.typescript.resolveLanguageServiceHost(tsLanguageServiceHost);
 		}
 	}
 
@@ -145,15 +144,15 @@ export function createLanguageServiceHost<T>(
 
 		// TODO: can this share between monorepo packages?
 		const moduleCache = ts.createModuleResolutionCache(
-			languageServiceHost.getCurrentDirectory(),
-			languageServiceHost.useCaseSensitiveFileNames?.() ? s => s : s => s.toLowerCase(),
-			languageServiceHost.getCompilationSettings()
+			tsLanguageServiceHost.getCurrentDirectory(),
+			tsLanguageServiceHost.useCaseSensitiveFileNames?.() ? s => s : s => s.toLowerCase(),
+			tsLanguageServiceHost.getCompilationSettings()
 		);
-		const resolveModuleName = createResolveModuleName(ts, languageServiceHost, language.plugins, fileName => language.scripts.get(asScrpitId(fileName)));
+		const resolveModuleName = createResolveModuleName(ts, tsLanguageServiceHost, language.plugins, fileName => language.scripts.get(asScrpitId(fileName)));
 
 		let lastSysVersion = 'version' in sys ? sys.version : undefined;
 
-		languageServiceHost.resolveModuleNameLiterals = (
+		tsLanguageServiceHost.resolveModuleNameLiterals = (
 			moduleLiterals,
 			containingFile,
 			redirectedReference,
@@ -168,7 +167,7 @@ export function createLanguageServiceHost<T>(
 				return resolveModuleName(moduleLiteral.text, containingFile, options, moduleCache, redirectedReference, sourceFile.impliedNodeFormat);
 			});
 		};
-		languageServiceHost.resolveModuleNames = (
+		tsLanguageServiceHost.resolveModuleNames = (
 			moduleNames,
 			containingFile,
 			_reusedNames,
@@ -186,7 +185,7 @@ export function createLanguageServiceHost<T>(
 	}
 
 	return {
-		languageServiceHost,
+		languageServiceHost: tsLanguageServiceHost,
 		getExtraServiceScript,
 	};
 
@@ -197,7 +196,7 @@ export function createLanguageServiceHost<T>(
 
 	function sync() {
 
-		const newProjectVersion = projectHost.getProjectVersion?.();
+		const newProjectVersion = projectLanguageServiceHost.getProjectVersion?.();
 		const shouldUpdate = newProjectVersion === undefined || newProjectVersion !== lastProjectVersion;
 		if (!shouldUpdate) {
 			return;
@@ -210,7 +209,7 @@ export function createLanguageServiceHost<T>(
 		const newOtherVirtualFileSnapshots = new Set<ts.IScriptSnapshot>();
 		const tsFileNamesSet = new Set<string>();
 
-		for (const fileName of projectHost.getScriptFileNames()) {
+		for (const fileName of projectLanguageServiceHost.getScriptFileNames()) {
 			const sourceScript = language.scripts.get(asScrpitId(fileName));
 			if (sourceScript?.generated) {
 				const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(sourceScript.generated.root);
@@ -300,7 +299,7 @@ export function createLanguageServiceHost<T>(
 			}
 		}
 
-		const isOpenedFile = !!projectHost.getScriptSnapshot(fileName);
+		const isOpenedFile = !!projectLanguageServiceHost.getScriptSnapshot(fileName);
 
 		if (isOpenedFile) {
 			const sourceScript = language.scripts.get(asScrpitId(fileName));

@@ -37,7 +37,6 @@ export function createSys(
 	sync(): Promise<number>;
 } & Disposable {
 	let version = 0;
-
 	const currentDirectory = workspaceFolder ? uriConverter.asFileName(workspaceFolder) : '';
 	const caseSensitive = sys?.useCaseSensitiveFileNames ?? false;
 	const root: Dir = {

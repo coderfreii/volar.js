@@ -1,4 +1,3 @@
-// import type { Language } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { notEmpty } from './utils';
 import { transformDiagnostic, fillSourceFileText } from './transform';

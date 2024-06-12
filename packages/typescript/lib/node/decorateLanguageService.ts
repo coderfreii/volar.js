@@ -1,22 +1,3 @@
-// import {
-// 	CodeInformation,
-// 	Language,
-// 	isCallHierarchyEnabled,
-// 	isCodeActionsEnabled,
-// 	isCompletionEnabled,
-// 	isDefinitionEnabled,
-// 	isFormattingEnabled,
-// 	isHighlightEnabled,
-// 	isHoverEnabled,
-// 	isImplementationEnabled,
-// 	isInlayHintsEnabled,
-// 	isLinkedEditingEnabled,
-// 	isReferencesEnabled,
-// 	isRenameEnabled,
-// 	isSemanticTokensEnabled,
-// 	isSignatureHelpEnabled,
-// 	isTypeDefinitionEnabled,
-// } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { dedupeDocumentSpans } from './dedupe';
 import { getServiceScript, notEmpty } from './utils';

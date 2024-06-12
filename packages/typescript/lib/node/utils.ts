@@ -1,5 +1,3 @@
-// import type { Language } from '@volar/language-core';
-
 import type { Language } from "@volar/language-core/lib/types";
 
 export function notEmpty<T>(value: T | null | undefined): value is T {

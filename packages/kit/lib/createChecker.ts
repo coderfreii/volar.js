@@ -4,16 +4,16 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createServiceEnvironment } from './createServiceEnvironment';
 import { asPosix, defaultCompilerOptions, fileNameToUri, uriToFileName } from './utils';
 import { URI } from 'vscode-uri';
-import { TypeScriptProjectHost, createLanguageServiceHost, resolveFileLanguageId } from '@volar/typescript';
+import { TypeScriptProjectLanguageServiceHost, createTsLanguageServiceHost, resolveFileLanguageId } from '@volar/typescript';
 import type { LanguagePlugin } from '@volar/language-core/lib/types';
-import {FileChangeType,CodeActionTriggerKind } from 'vscode-languageserver';
-import { NotificationHandler,DidChangeWatchedFilesParams } from 'vscode-languageserver';
-import {type LanguageServiceEnvironment, type LanguageServicePlugin } from '@volar/language-service/lib//types';
+import { FileChangeType, CodeActionTriggerKind } from 'vscode-languageserver';
+import { NotificationHandler, DidChangeWatchedFilesParams } from 'vscode-languageserver';
+import { type LanguageServiceEnvironment, type LanguageServicePlugin } from '@volar/language-service/lib//types';
 import { createLanguage } from '@volar/language-core';
 import { mergeWorkspaceEdits } from '@volar/language-service/lib/features/provideRenameEdits';
 import { createUriMap } from '@volar/language-service/lib/utils/uriMap';
 import { createLanguageService } from '@volar/language-service/lib/languageService';
-import {Diagnostic ,DiagnosticSeverity} from 'vscode-languageserver-protocol';
+import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-protocol';
 export function createTypeScriptChecker(
 	languagePlugins: LanguagePlugin<URI>[],
 	languageServicePlugins: LanguageServicePlugin[],
@@ -63,7 +63,7 @@ function createTypeScriptCheckerWorker(
 	languagePlugins: LanguagePlugin<URI>[],
 	languageServicePlugins: LanguageServicePlugin[],
 	configFileName: string | undefined,
-	getProjectHost: (env: LanguageServiceEnvironment) => TypeScriptProjectHost,
+	getProjectHost: (env: LanguageServiceEnvironment) => TypeScriptProjectLanguageServiceHost,
 ) {
 
 	let settings = {};
@@ -119,7 +119,7 @@ function createTypeScriptCheckerWorker(
 		sys: ts.sys,
 		asFileName: uriToFileName,
 		asScriptId: fileNameToUri,
-		...createLanguageServiceHost(
+		...createTsLanguageServiceHost(
 			ts,
 			ts.sys,
 			language,
@@ -257,7 +257,7 @@ function createTypeScriptProjectHost(
 	let projectVersion = 0;
 	let shouldCheckRootFiles = false;
 
-	const host: TypeScriptProjectHost = {
+	const host: TypeScriptProjectLanguageServiceHost = {
 		getCurrentDirectory: () => env.workspaceFolders.length
 			? uriToFileName(env.workspaceFolders[0])
 			: process.cwd(),

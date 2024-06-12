@@ -12,7 +12,7 @@ import { createUriMap } from '@volar/language-service/lib/utils/uriMap.js';
 // 	type LanguageService,
 // 	type LanguageServiceEnvironment,
 // } from '@volar/language-service';
-import { createLanguageServiceHost, createSys, resolveFileLanguageId } from '@volar/typescript';
+import { createTsLanguageServiceHost, createSys, resolveFileLanguageId } from '@volar/typescript';
 import type * as monaco from 'monaco-types';
 import type * as ts from 'typescript';
 import type { URI } from 'vscode-uri';
@@ -137,7 +137,7 @@ export function createTypeScriptWorkerService<T = {}>({
 		sys,
 		asFileName: uriConverter.asFileName,
 		asScriptId: uriConverter.asUri,
-		...createLanguageServiceHost(
+		...createTsLanguageServiceHost(
 			ts,
 			sys,
 			language,
