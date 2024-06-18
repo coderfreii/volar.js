@@ -172,7 +172,7 @@ export function createTsLanguageServiceHost<T>(
 			containingFile,
 			_reusedNames,
 			redirectedReference,
-			options,
+			options
 		) => {
 			if ('version' in sys && lastSysVersion !== sys.version) {
 				lastSysVersion = sys.version;

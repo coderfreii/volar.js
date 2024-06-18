@@ -96,11 +96,7 @@ export function createTypeScriptWorkerService<T = {}>({
 	const language = createLanguage<URI>(
 		[
 			...languagePlugins,
-			{
-				getLanguageId(uri) {
-					return resolveFileLanguageId(uri.fsPath);
-				},
-			},
+			{ getLanguageId: uri => resolveFileLanguageId(uri.path) },
 		],
 		createUriMap(sys.useCaseSensitiveFileNames),
 		uri => {
@@ -130,7 +126,7 @@ export function createTypeScriptWorkerService<T = {}>({
 			else {
 				language.scripts.delete(uri);
 			}
-		},
+		}
 	);
 	language.typescript = {
 		configFileName: undefined,
@@ -170,7 +166,7 @@ export function createTypeScriptWorkerService<T = {}>({
 				getCompilationSettings() {
 					return compilerOptions;
 				},
-			},
+			}
 		),
 	};
 
@@ -198,7 +194,7 @@ function createWorkerService<T = {}>(
 	language: Language<URI>,
 	servicePlugins: LanguageServicePlugin[],
 	env: LanguageServiceEnvironment,
-	extraApis: T = {} as any,
+	extraApis: T = {} as any
 ): LanguageService & T {
 
 	const languageService = _createLanguageService(language, servicePlugins, env);

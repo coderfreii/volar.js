@@ -1,26 +1,26 @@
-import { defineConfig } from 'tsl';
+import { Rules, defineConfig } from '@tsslint/config';
 import type * as ts from 'typescript';
-import * as path from 'path';
+// @ts-ignore
+import * as path from 'node:path';
 
 export default defineConfig({
-	rules: {
+	rules: getDefaultRules(),
+});
+
+export function getDefaultRules(): Rules {
+	return {
 		/**
 		 * @example
-		 * ```ts
+		 * ```diff
 		 * interface MyInterface {
-		 *   prop: string,
-		 * }
-		 * ```
-		 * should be
-		 * ```ts
-		 * interface MyInterface {
-		 *   prop: string;
+		 * -   prop: string,
+		 * +   prop: string;
 		 * }
 		 * ```
 		 */
 		'interface-property-semicolon'({ typescript: ts, sourceFile, reportWarning }) {
 			const { text } = sourceFile;
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (ts.isInterfaceDeclaration(node)) {
 					for (const member of node.members) {
 						if (text[member.end - 1] !== ';') {
@@ -44,23 +44,20 @@ export default defineConfig({
 						}
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
 		/**
 		 * @example
-		 * ```ts
-		 * if (foo) bar();
-		 * ```
-		 * should be
-		 * ```ts
-		 * if (foo) {
-		 * 	bar();
-		 * }
+		 * ```diff
+		 * - if (foo) bar();
+		 * + if (foo) {
+		 * +   bar();
+		 * + }
 		 * ```
 		 */
 		'braces-around-statements'({ typescript: ts, sourceFile, reportWarning }) {
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (ts.isIfStatement(node)) {
 					if (!ts.isBlock(node.thenStatement)) {
 						reportWithFix(node.thenStatement);
@@ -76,7 +73,7 @@ export default defineConfig({
 						reportWithFix(statement);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 			function reportWithFix(statement: ts.Statement) {
 				reportWarning(
@@ -103,7 +100,7 @@ export default defineConfig({
 									start:
 										ts.getTrailingCommentRanges(
 											sourceFile.text,
-											statement.getEnd(),
+											statement.getEnd()
 										)?.reverse()?.[0]?.end
 										?? statement.getEnd(),
 									length: 0,
@@ -127,12 +124,12 @@ export default defineConfig({
 			if (!packageJsonPath) {
 				return;
 			}
-			const packageJson = require(packageJsonPath);
+			const packageJson = JSON.parse(ts.sys.readFile(packageJsonPath) ?? '');
 			const parentPackageJsonPath = ts.findConfigFile(path.dirname(path.dirname(packageJsonPath)), ts.sys.fileExists, 'package.json');
 			const parentPackageJson = !!parentPackageJsonPath && parentPackageJsonPath !== packageJsonPath
-				? require(parentPackageJsonPath)
+				? JSON.parse(ts.sys.readFile(parentPackageJsonPath) ?? '')
 				: {};
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (
 					ts.isImportDeclaration(node)
 					&& !node.importClause?.isTypeOnly
@@ -161,21 +158,18 @@ export default defineConfig({
 						);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
 		/**
 		 * @example
-		 * ```ts
-		 * const foo = (bar) => {};
-		 * ```
-		 * should be
-		 * ```ts
-		 * const foo = bar => {};
+		 * ```diff
+		 * - const foo = (bar) => {};
+		 * + const foo = bar => {};
 		 * ```
 		 */
 		'arrow-parens'({ typescript: ts, sourceFile, reportWarning }) {
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (
 					ts.isArrowFunction(node)
 					&& node.parameters.length === 1
@@ -186,6 +180,7 @@ export default defineConfig({
 						ts.isIdentifier(parameter.name)
 						&& !parameter.type
 						&& !parameter.dotDotDotToken
+						&& !parameter.initializer
 						&& sourceFile.text[parameter.getStart(sourceFile) - 1] === '('
 						&& sourceFile.text[parameter.getEnd()] === ')'
 					) {
@@ -217,7 +212,7 @@ export default defineConfig({
 						);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
 		'need-format'({ typescript: ts, sourceFile, languageService, reportWarning }) {
@@ -270,7 +265,7 @@ export default defineConfig({
 		 * ^^^^ should not report
 		 */
 		'no-unnecessary-non-null-assertion'({ typescript: ts, sourceFile, languageService, reportWarning }) {
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (ts.isNonNullExpression(node)) {
 					const typeChecker = languageService.getProgram()!.getTypeChecker();
 					const type = typeChecker.getTypeAtLocation(node.expression);
@@ -299,24 +294,18 @@ export default defineConfig({
 						);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
 		/**
 		 * @example
-		 * ```ts
-		 * const obj = { prop: 'value' };
-		 * obj.prop;
-		 * ```
-		 * should be
-		 * ```ts
-		 * const obj = { prop: 'value' };
-		 * // Use the property
-		 * console.log(obj.prop);
+		 * ```diff
+		 * console.log(obj.prop); // used
+		 * - obj.prop; // unused
 		 * ```
 		 */
 		'no-unused-property-access'({ typescript: ts, sourceFile, reportWarning }) {
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (ts.isPropertyAccessExpression(node)) {
 					const parent = node.parent;
 					if (ts.isExpressionStatement(parent)) {
@@ -341,11 +330,11 @@ export default defineConfig({
 						);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
 		'no-unused-variable-access'({ typescript: ts, sourceFile, reportWarning }) {
-			ts.forEachChild(sourceFile, function walk(node) {
+			ts.forEachChild(sourceFile, function visit(node) {
 				if (ts.isIdentifier(node)) {
 					const parent = node.parent;
 					if (ts.isExpressionStatement(parent)) {
@@ -370,8 +359,99 @@ export default defineConfig({
 						);
 					}
 				}
-				ts.forEachChild(node, walk);
+				ts.forEachChild(node, visit);
 			});
 		},
-	},
-});
+		'no-trailing-comma-in-function'({ typescript: ts, sourceFile, reportWarning }) {
+			const { text } = sourceFile;
+			ts.forEachChild(sourceFile, function visit(node) {
+				if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isMethodDeclaration(node)) {
+					const parameters = node.parameters;
+					if (parameters.length > 0) {
+						const lastParameter = parameters[parameters.length - 1];
+						const nextCharIndex = lastParameter.end;
+						if (text[nextCharIndex] === ',') {
+							reportWarning(
+								`The last parameter of a function should not have a trailing comma.`,
+								lastParameter.getStart(sourceFile),
+								lastParameter.getEnd()
+							).withFix(
+								'Remove trailing comma',
+								() => [{
+									fileName: sourceFile.fileName,
+									textChanges: [{
+										span: { start: nextCharIndex, length: 1 },
+										newText: ''
+									}]
+								}]
+							);
+						}
+					}
+				}
+				ts.forEachChild(node, visit);
+			});
+		},
+		'no-trailing-comma-in-function-call'({ typescript: ts, sourceFile, reportWarning }) {
+			const { text } = sourceFile;
+			ts.forEachChild(sourceFile, function visit(node) {
+				if (ts.isCallExpression(node)) {
+					if (node.arguments.length > 0) {
+						const lastArgument = node.arguments[node.arguments.length - 1];
+						const nextCharIndex = lastArgument.end;
+						if (text[nextCharIndex] === ',') {
+							reportWarning(
+								`The last argument of a function call should not have a trailing comma.`,
+								lastArgument.getStart(sourceFile),
+								lastArgument.getEnd()
+							).withFix(
+								'Remove trailing comma',
+								() => [{
+									fileName: sourceFile.fileName,
+									textChanges: [{
+										span: { start: nextCharIndex, length: 1 },
+										newText: ''
+									}]
+								}]
+							);
+						}
+					}
+				}
+				ts.forEachChild(node, visit);
+			});
+		},
+		'no-async-without-await'({ typescript: ts, sourceFile, reportWarning }) {
+			ts.forEachChild(sourceFile, function visit(node) {
+				if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isMethodDeclaration(node)) {
+					const awaitModifer = node.modifiers?.find(modifier => modifier.kind === ts.SyntaxKind.AsyncKeyword);
+					if (awaitModifer && node.body) {
+						let hasAwait = false;
+						ts.forEachChild(node.body, function visit(node) {
+							hasAwait ||= ts.isAwaitExpression(node);
+							ts.forEachChild(node, visit);
+						});
+						if (!hasAwait) {
+							reportWarning(
+								`Function is declared as async but does not use await.`,
+								awaitModifer.getStart(sourceFile),
+								awaitModifer.getEnd()
+							).withFix(
+								'Remove async modifier',
+								() => [{
+									fileName: sourceFile.fileName,
+									textChanges: [{
+										span: {
+											start: awaitModifer.getStart(sourceFile),
+											length: awaitModifer.getEnd() - awaitModifer.getStart(sourceFile),
+										},
+										newText: ''
+									}]
+								}]
+							);
+						}
+					}
+				}
+				ts.forEachChild(node, visit);
+			});
+		},
+	};
+}

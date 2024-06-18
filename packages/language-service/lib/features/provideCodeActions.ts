@@ -35,7 +35,7 @@ export function register(context: LanguageServiceContext) {
 				const _codeActionContext: CodeActionContext = {
 					diagnostics: transformLocations(
 						codeActionContext.diagnostics,
-						range => map.getGeneratedRange(range),
+						range => map.getGeneratedRange(range)
 					),
 					only: codeActionContext.only,
 				};
@@ -43,7 +43,7 @@ export function register(context: LanguageServiceContext) {
 					map.sourceDocument.offsetAt(range.start),
 					map.sourceDocument.offsetAt(range.end),
 					map.map,
-					isCodeActionsEnabled,
+					isCodeActionsEnabled
 				);
 				if (mapped) {
 					yield {
@@ -65,7 +65,7 @@ export function register(context: LanguageServiceContext) {
 					if (data && data.version !== document.version) {
 						return false;
 					}
-					return data?.serviceIndex === pluginIndex;
+					return data?.pluginIndex === pluginIndex;
 				}).map(diagnostic => {
 					const data: ServiceDiagnosticData = diagnostic.data;
 					return {
@@ -114,7 +114,7 @@ export function register(context: LanguageServiceContext) {
 						const edit = transformWorkspaceEdit(
 							action.edit,
 							context,
-							'codeAction',
+							'codeAction'
 						);
 						if (!edit) {
 							return;
@@ -125,7 +125,7 @@ export function register(context: LanguageServiceContext) {
 					return action;
 				})
 				.filter(notEmpty),
-			arr => dedupe.withCodeAction(arr.flat()),
+			arr => dedupe.withCodeAction(arr.flat())
 		);
 	};
 }

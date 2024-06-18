@@ -62,7 +62,7 @@ export function startLanguageServer(serverModule: string, cwd?: string | URL) {
 			rootUri: string,
 			initializationOptions: _._InitializeParams['initializationOptions'],
 			capabilities: _.ClientCapabilities = {},
-			locale?: string,
+			locale?: string
 		) {
 			const result = await connection.sendRequest(
 				_.InitializeRequest.type,
@@ -197,7 +197,7 @@ export function startLanguageServer(serverModule: string, cwd?: string | URL) {
 			assert(!Array.isArray(result));
 			return result;
 		},
-		async sendCompletionResolveRequest(item: _.CompletionItem) {
+		sendCompletionResolveRequest(item: _.CompletionItem) {
 			return connection.sendRequest(
 				_.CompletionResolveRequest.type,
 				item satisfies _.CompletionItem
@@ -503,8 +503,7 @@ export function* printSnapshot(
 					' '.repeat(log.lineOffset),
 					sourceLineHead,
 					'(exact match)',
-					`(${log.mapping.source
-					+ ':' + (sourcePosition.line + 1)
+					`(${':' + (sourcePosition.line + 1)
 					+ ':' + (sourcePosition.character + 1)
 					})`,
 				].join(' ');
@@ -515,8 +514,7 @@ export function* printSnapshot(
 					' '.repeat(log.lineOffset),
 					sourceLineHead,
 					normalizeLogText(sourceLine),
-					`(${log.mapping.source
-					+ ':' + (sourcePosition.line + 1)
+					`(${':' + (sourcePosition.line + 1)
 					+ ':' + (sourcePosition.character + 1)})`,
 				].join(' ');
 				yield [

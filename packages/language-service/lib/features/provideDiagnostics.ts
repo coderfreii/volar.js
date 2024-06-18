@@ -6,7 +6,7 @@ import { URI } from 'vscode-uri';
 import type { SourceMapWithDocuments } from '../documents';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';
-import { sleep } from '../utils/common';
+import { notEmpty, sleep } from '../utils/common';
 import * as dedupe from '../utils/dedupe';
 import { documentFeatureWorker } from '../utils/featureWorkers';
 import { createUriMap } from '../utils/uriMap';
@@ -18,7 +18,7 @@ export function updateRange(
 	change: {
 		range: vscode.Range,
 		newEnd: vscode.Position;
-	},
+	}
 ) {
 	if (!updatePosition(range.start, change, false)) {
 		return;
@@ -38,7 +38,7 @@ function updatePosition(
 		range: vscode.Range,
 		newEnd: vscode.Position;
 	},
-	isEnd: boolean,
+	isEnd: boolean
 ) {
 	if (change.range.end.line > position.line) {
 		if (change.newEnd.line > position.line) {
@@ -104,7 +104,7 @@ export interface ServiceDiagnosticData {
 	version: number;
 	original: Pick<vscode.Diagnostic, 'data'>;
 	isFormat: boolean;
-	serviceIndex: number;
+	pluginIndex: number;
 	documentUri: string;
 }
 
@@ -152,7 +152,7 @@ export function register(context: LanguageServiceContext) {
 	return async (
 		uri: URI,
 		token = NoneCancellationToken,
-		response?: (result: vscode.Diagnostic[]) => void,
+		response?: (result: vscode.Diagnostic[]) => void
 	) => {
 		const sourceScript = context.language.scripts.get(uri);
 		if (!sourceScript) {
@@ -208,14 +208,14 @@ export function register(context: LanguageServiceContext) {
 			}
 		}
 
-		async function collectErrors() {
+		function collectErrors() {
 			return Object.values(lastResponse).flatMap(({ errors }) => errors);
 		}
 
 		async function worker(
 			api: 'provideDiagnostics' | 'provideSemanticDiagnostics',
 			cacheMap: CacheMap,
-			cache: Cache,
+			cache: Cache
 		) {
 			const result = await documentFeatureWorker(
 				context,
@@ -247,7 +247,7 @@ export function register(context: LanguageServiceContext) {
 						error.data = {
 							uri: uri.toString(),
 							version: document.version,
-							serviceIndex: pluginIndex,
+							pluginIndex: pluginIndex,
 							isFormat: false,
 							original: {
 								data: error.data,
@@ -266,9 +266,11 @@ export function register(context: LanguageServiceContext) {
 					return errors;
 				},
 				(errors, map) => {
-					return transformErrorRangeBase(errors, map, shouldReportDiagnostics);
+					return errors
+						.map(error => transformDiagnostic(context, error, map, shouldReportDiagnostics))
+						.filter(notEmpty);
 				},
-				arr => dedupe.withDiagnostics(arr.flat()),
+				arr => dedupe.withDiagnostics(arr.flat())
 			);
 			if (result) {
 				cache.errors = result;
@@ -276,59 +278,56 @@ export function register(context: LanguageServiceContext) {
 			}
 		}
 	};
+}
 
-	function transformErrorRangeBase(errors: vscode.Diagnostic[], map: SourceMapWithDocuments | undefined, filter: (data: CodeInformation) => boolean) {
+export function transformDiagnostic(
+	context: LanguageServiceContext,
+	error: vscode.Diagnostic,
+	map: SourceMapWithDocuments | undefined,
+	filter: (data: CodeInformation) => boolean
+) {
+	// clone it to avoid modify cache
+	let _error: vscode.Diagnostic = { ...error };
 
-		const result: vscode.Diagnostic[] = [];
+	if (map) {
+		const range = map.getSourceRange(error.range, filter);
+		if (!range) {
+			return;
+		}
+		_error.range = range;
+	}
 
-		for (const error of errors) {
+	if (_error.relatedInformation) {
 
-			// clone it to avoid modify cache
-			let _error: vscode.Diagnostic = { ...error };
+		const relatedInfos: vscode.DiagnosticRelatedInformation[] = [];
 
-			if (map) {
-				const range = map.getSourceRange(error.range, filter);
-				if (!range) {
-					continue;
-				}
-				_error.range = range;
-			}
+		for (const info of _error.relatedInformation) {
 
-			if (_error.relatedInformation) {
+			const decoded = context.decodeEmbeddedDocumentUri(URI.parse(info.location.uri));
+			const sourceScript = decoded && context.language.scripts.get(decoded[0]);
+			const virtualCode = decoded && sourceScript?.generated?.embeddedCodes.get(decoded[1]);
 
-				const relatedInfos: vscode.DiagnosticRelatedInformation[] = [];
-
-				for (const info of _error.relatedInformation) {
-
-					const decoded = context.decodeEmbeddedDocumentUri(URI.parse(info.location.uri));
-					const sourceScript = decoded && context.language.scripts.get(decoded[0]);
-					const virtualCode = decoded && sourceScript?.generated?.embeddedCodes.get(decoded[1]);
-
-					if (virtualCode) {
-						for (const map of context.documents.getMaps(virtualCode)) {
-							const range = map.getSourceRange(info.location.range, filter);
-							if (range) {
-								relatedInfos.push({
-									location: {
-										uri: map.sourceDocument.uri,
-										range,
-									},
-									message: info.message,
-								});
-							}
-						}
-					}
-					else {
-						relatedInfos.push(info);
+			if (virtualCode) {
+				for (const map of context.documents.getMaps(virtualCode)) {
+					const range = map.getSourceRange(info.location.range, filter);
+					if (range) {
+						relatedInfos.push({
+							location: {
+								uri: map.sourceDocument.uri,
+								range,
+							},
+							message: info.message,
+						});
 					}
 				}
-
-				_error.relatedInformation = relatedInfos;
 			}
-
-			result.push(_error);
+			else {
+				relatedInfos.push(info);
+			}
 		}
 
-		return result;
+		_error.relatedInformation = relatedInfos;
 	}
+
+	return _error;
 }

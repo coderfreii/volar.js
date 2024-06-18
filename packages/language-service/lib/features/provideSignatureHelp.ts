@@ -15,7 +15,7 @@ export function register(context: LanguageServiceContext) {
 			triggerKind: 1 satisfies typeof vscode.SignatureHelpTriggerKind.Invoked,
 			isRetrigger: false,
 		},
-		token = NoneCancellationToken,
+		token = NoneCancellationToken
 	) => {
 
 		return languageFeatureWorker(
@@ -40,7 +40,7 @@ export function register(context: LanguageServiceContext) {
 				}
 				return plugin[1].provideSignatureHelp?.(document, position, signatureHelpContext, token);
 			},
-			data => data,
+			data => data
 		);
 	};
 }

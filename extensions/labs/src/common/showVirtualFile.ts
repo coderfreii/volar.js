@@ -50,7 +50,7 @@ export async function activate(extensions: vscode.Extension<LabsInfo>[]) {
 			}
 		}),
 		vscode.languages.registerHoverProvider({ scheme: VOLAR_VIRTUAL_CODE_SCHEME }, {
-			async provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken) {
+			provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken) {
 
 				const maps = virtualUriToSourceMap.get(document.uri.toString());
 				if (!maps) {
@@ -63,12 +63,12 @@ export async function activate(extensions: vscode.Extension<LabsInfo>[]) {
 				}[] = [];
 
 				for (const [sourceUri, _, map] of maps) {
-					const source = map.getSourceOffset(document.offsetAt(position));
-					if (source) {
+					for (const source of map.getSourceOffsets(document.offsetAt(position))) {
 						data.push({
 							uri: sourceUri,
 							mapping: source,
 						});
+						break;
 					}
 				}
 
@@ -102,7 +102,7 @@ export async function activate(extensions: vscode.Extension<LabsInfo>[]) {
 					const clientId = uri.authority;
 					const info = extensions.find(extension => extension.exports.volarLabs.languageClients.some(client =>
 						// @ts-expect-error
-						client._id === clientId
+						client._id.toLowerCase() === clientId.toLowerCase()
 					))?.exports;
 					if (!info) {
 						return;
@@ -110,7 +110,7 @@ export async function activate(extensions: vscode.Extension<LabsInfo>[]) {
 
 					const client = info.volarLabs.languageClients.find(
 						// @ts-expect-error
-						client => client._id === clientId
+						client => client._id.toLowerCase() === clientId.toLowerCase()
 					)!;
 					const virtualCode = await client.sendRequest(
 						info.volarLabs.languageServerProtocol.GetVirtualCodeRequest.type,
@@ -138,8 +138,8 @@ export async function activate(extensions: vscode.Extension<LabsInfo>[]) {
 
 					return virtualCode.content;
 				}
-			},
-		),
+			}
+		)
 	);
 
 	return vscode.Disposable.from(...subscriptions);

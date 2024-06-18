@@ -1,7 +1,20 @@
 import type * as ts from 'typescript';
 import { dedupeDocumentSpans } from './dedupe';
+import {
+	getMappingOffset,
+	toGeneratedOffset,
+	toGeneratedOffsets,
+	toSourceOffset,
+	toSourceOffsets,
+	transformCallHierarchyItem,
+	transformDiagnostic,
+	transformDocumentSpan,
+	transformFileTextChanges,
+	transformSpan,
+	transformTextChange,
+	transformTextSpan,
+} from './transform';
 import { getServiceScript, notEmpty } from './utils';
-import { toGeneratedOffsets, toGeneratedOffset, toSourceOffset, transformCallHierarchyItem, transformDiagnostic, transformDocumentSpan, transformFileTextChanges, transformSpan, transformTextChange, transformTextSpan } from './transform';
 import { isFormattingEnabled, isRenameEnabled, isLinkedEditingEnabled, isCallHierarchyEnabled, isCodeActionsEnabled, isHoverEnabled, isSignatureHelpEnabled, isHighlightEnabled, isSemanticTokensEnabled, isDefinitionEnabled, isReferencesEnabled, isTypeDefinitionEnabled, isImplementationEnabled, isCompletionEnabled, isInlayHintsEnabled } from '@volar/language-core/lib/editorFeatures';
 import type { Language, CodeInformation } from '@volar/language-core/lib/types';
 
@@ -9,7 +22,7 @@ const windowsPathReg = /\\/g;
 
 export function decorateLanguageService(
 	language: Language<string>,
-	languageService: ts.LanguageService,
+	languageService: ts.LanguageService
 ) {
 
 	// ignored methods
@@ -21,9 +34,9 @@ export function decorateLanguageService(
 
 	languageService.getNavigationTree = filePath => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript] = getServiceScript(language, fileName);
-		if (serviceScript) {
-			const tree = getNavigationTree(fileName);
+		const [serviceScript, targetScript] = getServiceScript(language, fileName);
+		if (serviceScript || targetScript?.associatedOnly) {
+			const tree = getNavigationTree(targetScript.id);
 			tree.childItems = undefined;
 			return tree;
 		}
@@ -33,8 +46,8 @@ export function decorateLanguageService(
 	};
 	languageService.getOutliningSpans = filePath => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript] = getServiceScript(language, fileName);
-		if (serviceScript) {
+		const [serviceScript, targetScript] = getServiceScript(language, fileName);
+		if (serviceScript || targetScript?.associatedOnly) {
 			return [];
 		}
 		else {
@@ -80,14 +93,18 @@ export function decorateLanguageService(
 
 	languageService.getFormattingEditsForDocument = (filePath, options) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
+			const map = language.maps.get(serviceScript.code, targetScript);
 			if (!map.mappings.some(mapping => isFormattingEnabled(mapping.data))) {
 				return [];
 			}
-			const edits = getFormattingEditsForDocument(fileName, options);
+			const edits = getFormattingEditsForDocument(targetScript.id, options);
 			return edits
-				.map(edit => transformTextChange(sourceScript, map, edit, isFormattingEnabled))
+				.map(edit => transformTextChange(sourceScript, language, serviceScript, edit, isFormattingEnabled)?.[1])
 				.filter(notEmpty);
 		}
 		else {
@@ -96,14 +113,17 @@ export function decorateLanguageService(
 	};
 	languageService.getFormattingEditsForRange = (filePath, start, end, options) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generateStart = toGeneratedOffset(sourceScript, map, start, isFormattingEnabled);
-			const generateEnd = toGeneratedOffset(sourceScript, map, end, isFormattingEnabled);
+			const generateStart = toGeneratedOffset(language, serviceScript, sourceScript, start, isFormattingEnabled);
+			const generateEnd = toGeneratedOffset(language, serviceScript, sourceScript, end, isFormattingEnabled);
 			if (generateStart !== undefined && generateEnd !== undefined) {
-				const edits = getFormattingEditsForRange(fileName, generateStart, generateEnd, options);
+				const edits = getFormattingEditsForRange(targetScript.id, generateStart, generateEnd, options);
 				return edits
-					.map(edit => transformTextChange(sourceScript, map, edit, isFormattingEnabled))
+					.map(edit => transformTextChange(sourceScript, language, serviceScript, edit, isFormattingEnabled)?.[1])
 					.filter(notEmpty);
 			}
 			return [];
@@ -114,13 +134,16 @@ export function decorateLanguageService(
 	};
 	languageService.getFormattingEditsAfterKeystroke = (filePath, position, key, options) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isFormattingEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isFormattingEnabled);
 			if (generatePosition !== undefined) {
-				const edits = getFormattingEditsAfterKeystroke(fileName, generatePosition, key, options);
+				const edits = getFormattingEditsAfterKeystroke(targetScript.id, generatePosition, key, options);
 				return edits
-					.map(edit => transformTextChange(sourceScript, map, edit, isFormattingEnabled))
+					.map(edit => transformTextChange(sourceScript, language, serviceScript, edit, isFormattingEnabled)?.[1])
 					.filter(notEmpty);
 			}
 			return [];
@@ -131,21 +154,22 @@ export function decorateLanguageService(
 	};
 	languageService.getEditsForFileRename = (oldFilePath, newFilePath, formatOptions, preferences) => {
 		const edits = getEditsForFileRename(oldFilePath, newFilePath, formatOptions, preferences);
-		return edits
-			.map(edit => transformFileTextChanges(language, edit, isRenameEnabled))
-			.filter(notEmpty);
+		return transformFileTextChanges(language, edits, isRenameEnabled);
 	};
 	languageService.getLinkedEditingRangeAtPosition = (filePath, position) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isLinkedEditingEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isLinkedEditingEnabled);
 			if (generatePosition !== undefined) {
-				const info = getLinkedEditingRangeAtPosition(fileName, generatePosition);
+				const info = getLinkedEditingRangeAtPosition(targetScript.id, generatePosition);
 				if (info) {
 					return {
 						ranges: info.ranges
-							.map(span => transformTextSpan(sourceScript, map, span, isLinkedEditingEnabled))
+							.map(span => transformTextSpan(sourceScript, language, serviceScript, span, isLinkedEditingEnabled)?.[1])
 							.filter(notEmpty),
 						wordPattern: info.wordPattern,
 					};
@@ -158,11 +182,14 @@ export function decorateLanguageService(
 	};
 	languageService.prepareCallHierarchy = (filePath, position) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isCallHierarchyEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isCallHierarchyEnabled);
 			if (generatePosition !== undefined) {
-				const item = prepareCallHierarchy(fileName, generatePosition);
+				const item = prepareCallHierarchy(targetScript.id, generatePosition);
 				if (Array.isArray(item)) {
 					return item.map(item => transformCallHierarchyItem(language, item, isCallHierarchyEnabled));
 				}
@@ -178,11 +205,14 @@ export function decorateLanguageService(
 	languageService.provideCallHierarchyIncomingCalls = (filePath, position) => {
 		let calls: ts.CallHierarchyIncomingCall[] = [];
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isCallHierarchyEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isCallHierarchyEnabled);
 			if (generatePosition !== undefined) {
-				calls = provideCallHierarchyIncomingCalls(fileName, generatePosition);
+				calls = provideCallHierarchyIncomingCalls(targetScript.id, generatePosition);
 			}
 		}
 		else {
@@ -203,11 +233,14 @@ export function decorateLanguageService(
 	languageService.provideCallHierarchyOutgoingCalls = (filePath, position) => {
 		let calls: ts.CallHierarchyOutgoingCall[] = [];
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isCallHierarchyEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isCallHierarchyEnabled);
 			if (generatePosition !== undefined) {
-				calls = provideCallHierarchyOutgoingCalls(fileName, generatePosition);
+				calls = provideCallHierarchyOutgoingCalls(targetScript.id, generatePosition);
 			}
 		}
 		else {
@@ -217,8 +250,8 @@ export function decorateLanguageService(
 			.map(call => {
 				const to = transformCallHierarchyItem(language, call.to, isCallHierarchyEnabled);
 				const fromSpans = call.fromSpans
-					.map(span => sourceScript
-						? transformTextSpan(sourceScript, map, span, isCallHierarchyEnabled)
+					.map(span => serviceScript
+						? transformTextSpan(sourceScript, language, serviceScript, span, isCallHierarchyEnabled)?.[1]
 						: span
 					)
 					.filter(notEmpty);
@@ -230,27 +263,24 @@ export function decorateLanguageService(
 	};
 	languageService.organizeImports = (args, formatOptions, preferences) => {
 		const unresolved = organizeImports(args, formatOptions, preferences);
-		const resolved = unresolved
-			.map(changes => transformFileTextChanges(language, changes, isCodeActionsEnabled))
-			.filter(notEmpty);
-		return resolved;
+		return transformFileTextChanges(language, unresolved, isCodeActionsEnabled);
 	};
 	languageService.getQuickInfoAtPosition = (filePath, position) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
 			const infos: ts.QuickInfo[] = [];
-			for (const [generatePosition, mapping] of toGeneratedOffsets(sourceScript, map, position)) {
-				if (!isHoverEnabled(mapping.data)) {
-					continue;
-				}
-				const info = getQuickInfoAtPosition(fileName, generatePosition);
+			for (const [generatePosition] of toGeneratedOffsets(language, serviceScript, sourceScript, position, isHoverEnabled)) {
+				const info = getQuickInfoAtPosition(targetScript.id, generatePosition);
 				if (info) {
-					const textSpan = transformTextSpan(sourceScript, map, info.textSpan, isHoverEnabled);
+					const textSpan = transformTextSpan(sourceScript, language, serviceScript, info.textSpan, isHoverEnabled)?.[1];
 					if (textSpan) {
 						infos.push({
 							...info,
-							textSpan,
+							textSpan: textSpan,
 						});
 					}
 				}
@@ -300,13 +330,16 @@ export function decorateLanguageService(
 	};
 	languageService.getSignatureHelpItems = (filePath, position, options) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isSignatureHelpEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isSignatureHelpEnabled);
 			if (generatePosition !== undefined) {
-				const result = getSignatureHelpItems(fileName, generatePosition, options);
+				const result = getSignatureHelpItems(targetScript.id, generatePosition, options);
 				if (result) {
-					const applicableSpan = transformTextSpan(sourceScript, map, result.applicableSpan, isSignatureHelpEnabled);
+					const applicableSpan = transformTextSpan(sourceScript, language, serviceScript, result.applicableSpan, isSignatureHelpEnabled)?.[1];
 					if (applicableSpan) {
 						return {
 							...result,
@@ -326,14 +359,14 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isHighlightEnabled,
-			position => getDocumentHighlights(fileName, position, filesToSearch),
+			(fileName, position) => getDocumentHighlights(fileName, position, filesToSearch),
 			function* (result) {
 				for (const ref of result) {
 					for (const reference of ref.highlightSpans) {
 						yield [reference.fileName ?? ref.fileName, reference.textSpan.start];
 					}
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -342,7 +375,7 @@ export function decorateLanguageService(
 					...highlights,
 					highlightSpans: highlights.highlightSpans
 						.map(span => {
-							const textSpan = transformSpan(language, span.fileName ?? highlights.fileName, span.textSpan, isHighlightEnabled)?.textSpan;
+							const { textSpan } = transformSpan(language, span.fileName ?? highlights.fileName, span.textSpan, isHighlightEnabled) ?? {};
 							if (textSpan) {
 								return {
 									...span,
@@ -358,9 +391,12 @@ export function decorateLanguageService(
 	};
 	languageService.getApplicableRefactors = (filePath, positionOrRange, preferences, triggerReason, kind, includeInteractiveActions) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, typeof positionOrRange === 'number' ? positionOrRange : positionOrRange.pos, isCodeActionsEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, typeof positionOrRange === 'number' ? positionOrRange : positionOrRange.pos, isCodeActionsEnabled);
 			if (generatePosition !== undefined) {
 				const por = typeof positionOrRange === 'number'
 					? generatePosition
@@ -368,7 +404,7 @@ export function decorateLanguageService(
 						pos: generatePosition,
 						end: generatePosition + positionOrRange.end - positionOrRange.pos,
 					};
-				return getApplicableRefactors(fileName, por, preferences, triggerReason, kind, includeInteractiveActions);
+				return getApplicableRefactors(targetScript.id, por, preferences, triggerReason, kind, includeInteractiveActions);
 			}
 			return [];
 		}
@@ -379,15 +415,19 @@ export function decorateLanguageService(
 	languageService.getEditsForRefactor = (filePath, formatOptions, positionOrRange, refactorName, actionName, preferences) => {
 		let edits: ts.RefactorEditInfo | undefined;
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
 			const generatePosition = toGeneratedOffset(
+				language,
+				serviceScript,
 				sourceScript,
-				map,
 				typeof positionOrRange === 'number'
 					? positionOrRange
 					: positionOrRange.pos,
-				isCodeActionsEnabled,
+				isCodeActionsEnabled
 			);
 			if (generatePosition !== undefined) {
 				const por = typeof positionOrRange === 'number'
@@ -396,31 +436,32 @@ export function decorateLanguageService(
 						pos: generatePosition,
 						end: generatePosition + positionOrRange.end - positionOrRange.pos,
 					};
-				edits = getEditsForRefactor(fileName, formatOptions, por, refactorName, actionName, preferences);
+				edits = getEditsForRefactor(targetScript.id, formatOptions, por, refactorName, actionName, preferences);
 			}
 		}
 		else {
 			edits = getEditsForRefactor(fileName, formatOptions, positionOrRange, refactorName, actionName, preferences);
 		}
 		if (edits) {
-			edits.edits = edits.edits
-				.map(edit => transformFileTextChanges(language, edit, isCodeActionsEnabled))
-				.filter(notEmpty);
+			edits.edits = transformFileTextChanges(language, edits.edits, isCodeActionsEnabled);
 			return edits;
 		}
 	};
 	languageService.getRenameInfo = (filePath, position, options) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return {
+				canRename: false,
+				localizedErrorMessage: "Cannot rename"
+			};
+		}
 		if (serviceScript) {
 			let failed: ts.RenameInfoFailure | undefined;
-			for (const [generateOffset, mapping] of toGeneratedOffsets(sourceScript, map, position)) {
-				if (!isRenameEnabled(mapping.data)) {
-					continue;
-				}
-				const info = getRenameInfo(fileName, generateOffset, options);
+			for (const [generateOffset] of toGeneratedOffsets(language, serviceScript, sourceScript, position, isRenameEnabled)) {
+				const info = getRenameInfo(targetScript.id, generateOffset, options);
 				if (info.canRename) {
-					const span = transformTextSpan(sourceScript, map, info.triggerSpan, isRenameEnabled);
+					const span = transformTextSpan(sourceScript, language, serviceScript, info.triggerSpan, isRenameEnabled)?.[1];
 					if (span) {
 						info.triggerSpan = span;
 						return info;
@@ -445,18 +486,21 @@ export function decorateLanguageService(
 	languageService.getCodeFixesAtPosition = (filePath, start, end, errorCodes, formatOptions, preferences) => {
 		let fixes: readonly ts.CodeFixAction[] = [];
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
-			const generateStart = toGeneratedOffset(sourceScript, map, start, isCodeActionsEnabled);
-			const generateEnd = toGeneratedOffset(sourceScript, map, end, isCodeActionsEnabled);
+			const generateStart = toGeneratedOffset(language, serviceScript, sourceScript, start, isCodeActionsEnabled);
+			const generateEnd = toGeneratedOffset(language, serviceScript, sourceScript, end, isCodeActionsEnabled);
 			if (generateStart !== undefined && generateEnd !== undefined) {
 				fixes = getCodeFixesAtPosition(
-					fileName,
+					targetScript.id,
 					generateStart,
 					generateEnd,
 					errorCodes,
 					formatOptions,
-					preferences,
+					preferences
 				);
 			}
 		}
@@ -464,17 +508,24 @@ export function decorateLanguageService(
 			fixes = getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions, preferences);
 		}
 		fixes = fixes.map(fix => {
-			fix.changes = fix.changes.map(edit => transformFileTextChanges(language, edit, isCodeActionsEnabled)).filter(notEmpty);
+			fix.changes = transformFileTextChanges(language, fix.changes, isCodeActionsEnabled);
 			return fix;
 		});
 		return fixes;
 	};
 	languageService.getEncodedSemanticClassifications = (filePath, span, format) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return {
+				spans: [],
+				endOfLineState: 0
+			};
+		}
 		if (serviceScript) {
 			let start: number | undefined;
 			let end: number | undefined;
+			const map = language.maps.get(serviceScript.code, targetScript);
 			for (const mapping of map.mappings) {
 				// TODO reuse the logic from language service
 				if (isSemanticTokensEnabled(mapping.data) && mapping.sourceOffsets[0] >= span.start && mapping.sourceOffsets[0] <= span.start + span.length) {
@@ -485,20 +536,27 @@ export function decorateLanguageService(
 				}
 			}
 			start ??= 0;
-			end ??= sourceScript.snapshot.getLength();
-			start += sourceScript.snapshot.getLength();
-			end += sourceScript.snapshot.getLength();
-			const result = getEncodedSemanticClassifications(fileName, { start, length: end - start }, format);
+			end ??= targetScript.snapshot.getLength();
+			const mappingOffset = getMappingOffset(language, serviceScript);
+			start += mappingOffset;
+			end += mappingOffset;
+			const result = getEncodedSemanticClassifications(targetScript.id, { start, length: end - start }, format);
 			const spans: number[] = [];
 			for (let i = 0; i < result.spans.length; i += 3) {
-				const sourceStart = toSourceOffset(sourceScript, map, result.spans[i], isSemanticTokensEnabled);
-				const sourceEnd = toSourceOffset(sourceScript, map, result.spans[i] + result.spans[i + 1], isSemanticTokensEnabled);
-				if (sourceStart !== undefined && sourceEnd !== undefined) {
-					spans.push(
-						sourceStart,
-						sourceEnd - sourceStart,
-						result.spans[i + 2]
-					);
+				for (const sourceStart of toSourceOffsets(sourceScript, language, serviceScript, result.spans[i], isSemanticTokensEnabled)) {
+					for (const sourceEnd of toSourceOffsets(sourceScript, language, serviceScript, result.spans[i] + result.spans[i + 1], isSemanticTokensEnabled)) {
+						if (sourceStart[0] === sourceEnd[0] && sourceEnd[1] >= sourceStart[1]) {
+							spans.push(
+								sourceStart[1],
+								sourceEnd[1] - sourceStart[1],
+								result.spans[i + 2]
+							);
+							break;
+						}
+					}
+					if (spans.length) {
+						break;
+					}
 				}
 			}
 			result.spans = spans;
@@ -510,21 +568,36 @@ export function decorateLanguageService(
 	};
 	languageService.getSyntacticDiagnostics = filePath => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		return getSyntacticDiagnostics(fileName)
-			.map(d => transformDiagnostic(language, d, false))
-			.filter(notEmpty);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
+		return getSyntacticDiagnostics(targetScript?.id ?? fileName)
+			.map(d => transformDiagnostic(language, d, languageService.getProgram(), false))
+			.filter(notEmpty)
+			.filter(d => !serviceScript || language.scripts.get(d.file.fileName) === sourceScript);
 	};
 	languageService.getSemanticDiagnostics = filePath => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		return getSemanticDiagnostics(fileName)
-			.map(d => transformDiagnostic(language, d, false))
-			.filter(notEmpty);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
+		return getSemanticDiagnostics(targetScript?.id ?? fileName)
+			.map(d => transformDiagnostic(language, d, languageService.getProgram(), false))
+			.filter(notEmpty)
+			.filter(d => !serviceScript || !d.file || language.scripts.get(d.file.fileName) === sourceScript);
 	};
 	languageService.getSuggestionDiagnostics = filePath => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		return getSuggestionDiagnostics(fileName)
-			.map(d => transformDiagnostic(language, d, false))
-			.filter(notEmpty);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
+		return getSuggestionDiagnostics(targetScript?.id ?? fileName)
+			.map(d => transformDiagnostic(language, d, languageService.getProgram(), false))
+			.filter(notEmpty)
+			.filter(d => !serviceScript || !d.file || language.scripts.get(d.file.fileName) === sourceScript);
 	};
 	languageService.getDefinitionAndBoundSpan = (filePath, position) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
@@ -532,12 +605,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isDefinitionEnabled,
-			position => getDefinitionAndBoundSpan(fileName, position),
+			(fileName, position) => getDefinitionAndBoundSpan(fileName, position),
 			function* (result) {
 				for (const ref of result.definitions ?? []) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const textSpan = unresolved
 			.map(s => transformSpan(language, fileName, s.textSpan, isDefinitionEnabled)?.textSpan)
@@ -563,14 +636,14 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isReferencesEnabled,
-			position => findReferences(fileName, position),
+			(fileName, position) => findReferences(fileName, position),
 			function* (result) {
 				for (const ref of result) {
 					for (const reference of ref.references) {
 						yield [reference.fileName, reference.textSpan.start];
 					}
 				}
-			},
+			}
 		);
 		const resolved: ts.ReferencedSymbol[] = unresolved
 			.flat()
@@ -591,12 +664,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isDefinitionEnabled,
-			position => getDefinitionAtPosition(fileName, position),
+			(fileName, position) => getDefinitionAtPosition(fileName, position),
 			function* (result) {
 				for (const ref of result) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -610,12 +683,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isTypeDefinitionEnabled,
-			position => getTypeDefinitionAtPosition(fileName, position),
+			(fileName, position) => getTypeDefinitionAtPosition(fileName, position),
 			function* (result) {
 				for (const ref of result) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -629,12 +702,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isImplementationEnabled,
-			position => getImplementationAtPosition(fileName, position),
+			(fileName, position) => getImplementationAtPosition(fileName, position),
 			function* (result) {
 				for (const ref of result) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -648,12 +721,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isRenameEnabled,
-			position => findRenameLocations(fileName, position, findInStrings, findInComments, preferences as ts.UserPreferences),
+			(fileName, position) => findRenameLocations(fileName, position, findInStrings, findInComments, preferences as ts.UserPreferences),
 			function* (result) {
 				for (const ref of result) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -667,12 +740,12 @@ export function decorateLanguageService(
 			fileName,
 			position,
 			isReferencesEnabled,
-			position => getReferencesAtPosition(fileName, position),
+			(fileName, position) => getReferencesAtPosition(fileName, position),
 			function* (result) {
 				for (const ref of result) {
 					yield [ref.fileName, ref.textSpan.start];
 				}
-			},
+			}
 		);
 		const resolved = unresolved
 			.flat()
@@ -682,14 +755,14 @@ export function decorateLanguageService(
 	};
 	languageService.getCompletionsAtPosition = (filePath, position, options, formattingSettings) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
 			const results: ts.CompletionInfo[] = [];
-			for (const [generatedOffset, mapping] of toGeneratedOffsets(sourceScript, map, position)) {
-				if (!isCompletionEnabled(mapping.data)) {
-					continue;
-				}
-				const result = getCompletionsAtPosition(fileName, generatedOffset, options, formattingSettings);
+			for (const [generatedOffset, mapping] of toGeneratedOffsets(language, serviceScript, sourceScript, position, isCompletionEnabled)) {
+				const result = getCompletionsAtPosition(targetScript.id, generatedOffset, options, formattingSettings);
 				if (!result) {
 					continue;
 				}
@@ -697,10 +770,10 @@ export function decorateLanguageService(
 					result.entries = result.entries.filter(entry => !!entry.sourceDisplay);
 				}
 				for (const entry of result.entries) {
-					entry.replacementSpan = entry.replacementSpan && transformTextSpan(sourceScript, map, entry.replacementSpan, isCompletionEnabled);
+					entry.replacementSpan = entry.replacementSpan && transformTextSpan(sourceScript, language, serviceScript, entry.replacementSpan, isCompletionEnabled)?.[1];
 				}
 				result.optionalReplacementSpan = result.optionalReplacementSpan
-					&& transformTextSpan(sourceScript, map, result.optionalReplacementSpan, isCompletionEnabled);
+					&& transformTextSpan(sourceScript, language, serviceScript, result.optionalReplacementSpan, isCompletionEnabled)?.[1];
 				const isAdditional = typeof mapping.data.completion === 'object' && mapping.data.completion.isAdditional;
 				if (isAdditional) {
 					results.push(result);
@@ -727,11 +800,14 @@ export function decorateLanguageService(
 		let details: ts.CompletionEntryDetails | undefined;
 
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return undefined;
+		}
 		if (serviceScript) {
-			const generatePosition = toGeneratedOffset(sourceScript, map, position, isCompletionEnabled);
+			const generatePosition = toGeneratedOffset(language, serviceScript, sourceScript, position, isCompletionEnabled);
 			if (generatePosition !== undefined) {
-				details = getCompletionEntryDetails(fileName, generatePosition, entryName, formatOptions, source, preferences, data);
+				details = getCompletionEntryDetails(targetScript.id, generatePosition, entryName, formatOptions, source, preferences, data);
 			}
 		}
 		else {
@@ -740,7 +816,7 @@ export function decorateLanguageService(
 
 		if (details?.codeActions) {
 			for (const codeAction of details.codeActions) {
-				codeAction.changes = codeAction.changes.map(edit => transformFileTextChanges(language, edit, isCompletionEnabled)).filter(notEmpty);
+				codeAction.changes = transformFileTextChanges(language, codeAction.changes, isCompletionEnabled);
 			}
 		}
 
@@ -748,10 +824,14 @@ export function decorateLanguageService(
 	};
 	languageService.provideInlayHints = (filePath, span, preferences) => {
 		const fileName = filePath.replace(windowsPathReg, '/');
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
+		if (targetScript?.associatedOnly) {
+			return [];
+		}
 		if (serviceScript) {
 			let start: number | undefined;
 			let end: number | undefined;
+			const map = language.maps.get(serviceScript.code, targetScript);
 			for (const mapping of map.mappings) {
 				if (isInlayHintsEnabled(mapping.data) && mapping.sourceOffsets[0] >= span.start && mapping.sourceOffsets[0] <= span.start + span.length) {
 					start ??= mapping.generatedOffsets[0];
@@ -764,16 +844,17 @@ export function decorateLanguageService(
 				start = 0;
 				end = 0;
 			}
-			start += sourceScript.snapshot.getLength();
-			end += sourceScript.snapshot.getLength();
-			const result = provideInlayHints(fileName, { start, length: end - start }, preferences);
+			const mappingOffset = getMappingOffset(language, serviceScript);
+			start += mappingOffset;
+			end += mappingOffset;
+			const result = provideInlayHints(targetScript.id, { start, length: end - start }, preferences);
 			const hints: ts.InlayHint[] = [];
 			for (const hint of result) {
-				const sourcePosition = toSourceOffset(sourceScript, map, hint.position, isInlayHintsEnabled);
+				const sourcePosition = toSourceOffset(sourceScript, language, serviceScript, hint.position, isInlayHintsEnabled);
 				if (sourcePosition !== undefined) {
 					hints.push({
 						...hint,
-						position: sourcePosition,
+						position: sourcePosition[1],
 					});
 				}
 			}
@@ -796,17 +877,15 @@ export function decorateLanguageService(
 		fileName: string,
 		position: number,
 		filter: (data: CodeInformation) => boolean,
-		worker: (position: number) => T | undefined,
-		getLinkedCodes: (result: T) => Generator<[fileName: string, position: number]>,
+		worker: (fileName: string, position: number) => T | undefined,
+		getLinkedCodes: (result: T) => Generator<[fileName: string, position: number]>
 	) {
 		const results: T[] = [];
 		const processedFilePositions = new Set<string>();
-		const [serviceScript, sourceScript, map] = getServiceScript(language, fileName);
+		const [serviceScript, targetScript, sourceScript] = getServiceScript(language, fileName);
 		if (serviceScript) {
-			for (const [generatedOffset, mapping] of map.getGeneratedOffsets(position)) {
-				if (filter(mapping.data)) {
-					process(fileName, generatedOffset + sourceScript.snapshot.getLength());
-				}
+			for (const [generatedOffset] of toGeneratedOffsets(language, serviceScript, sourceScript, position, filter)) {
+				process(targetScript.id, generatedOffset);
 			}
 		}
 		else {
@@ -820,7 +899,7 @@ export function decorateLanguageService(
 				return;
 			}
 			processedFilePositions.add(fileName + ':' + position);
-			const result = worker(position);
+			const result = worker(fileName, position);
 			if (!result) {
 				return;
 			}
@@ -829,18 +908,19 @@ export function decorateLanguageService(
 
 				processedFilePositions.add(ref[0] + ':' + ref[1]);
 
-				const [virtualFile, sourceScript] = getServiceScript(language, ref[0]);
-				if (!virtualFile) {
+				const [serviceScript] = getServiceScript(language, ref[0]);
+				if (!serviceScript) {
 					continue;
 				}
 
-				const linkedCodeMap = language.linkedCodeMaps.get(virtualFile.code);
+				const linkedCodeMap = language.linkedCodeMaps.get(serviceScript.code);
 				if (!linkedCodeMap) {
 					continue;
 				}
 
-				for (const linkedCodeOffset of linkedCodeMap.getLinkedOffsets(ref[1] - sourceScript.snapshot.getLength())) {
-					process(ref[0], linkedCodeOffset + sourceScript.snapshot.getLength());
+				const mappingOffset = getMappingOffset(language, serviceScript);
+				for (const linkedCodeOffset of linkedCodeMap.getLinkedOffsets(ref[1] - mappingOffset)) {
+					process(ref[0], linkedCodeOffset + mappingOffset);
 				}
 			}
 		}

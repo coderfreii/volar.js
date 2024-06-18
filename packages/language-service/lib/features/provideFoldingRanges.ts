@@ -31,7 +31,7 @@ export function register(context: LanguageServiceContext) {
 					range => map.getSourceRange(range, isFoldingRangesEnabled)
 				);
 			},
-			arr => arr.flat(),
+			arr => arr.flat()
 		);
 	};
 }

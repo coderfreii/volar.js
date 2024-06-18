@@ -11,6 +11,7 @@ import * as colorPresentations from './features/provideColorPresentations';
 import * as completions from './features/provideCompletionItems';
 import * as definition from './features/provideDefinition';
 import * as diagnostics from './features/provideDiagnostics';
+import * as workspaceDiagnostics from './features/provideWorkspaceDiagnostics';
 import * as documentColors from './features/provideDocumentColors';
 import * as documentDrop from './features/provideDocumentDropEdits';
 import * as format from './features/provideDocumentFormattingEdits';
@@ -42,12 +43,12 @@ import type { LinkedCodeMap } from '@volar/language-core/lib/linkedCodeMap';
 import type { Language, CodeInformation } from '@volar/language-core/lib/types';
 import type { SourceMap } from '@volar/source-map';
 
-export type LanguageService = ReturnType<typeof createLanguageService>;
+export type LanguageService = ReturnType<typeof createLanguageServiceBase>;
 
 export function createLanguageService(
 	language: Language<URI>,
 	plugins: LanguageServicePlugin[],
-	env: LanguageServiceEnvironment,
+	env: LanguageServiceEnvironment
 ) {
 	const documentVersions = createUriMap<number>();
 	const map2DocMap = new WeakMap<SourceMap<CodeInformation>, SourceMapWithDocuments>();
@@ -56,6 +57,7 @@ export function createLanguageService(
 	const embeddedContentScheme = 'volar-embedded-content';
 	const context: LanguageServiceContext = {
 		language,
+		getLanguageService: () => langaugeService,
 		documents: {
 			get(uri, languageId, snapshot) {
 				if (!snapshot2Doc.has(snapshot)) {
@@ -69,13 +71,26 @@ export function createLanguageService(
 						uri.toString(),
 						languageId,
 						version,
-						snapshot.getText(0, snapshot.getLength()),
+						snapshot.getText(0, snapshot.getLength())
 					));
 				}
 				return map.get(uri)!;
 			},
+			getMap(virtualCode, sourceScript) {
+				const map = context.language.maps.get(virtualCode, sourceScript);
+				if (!map2DocMap.has(map)) {
+					const embeddedUri = context.encodeEmbeddedDocumentUri(sourceScript.id, virtualCode.id);
+					map2DocMap.set(map, new SourceMapWithDocuments(
+						this.get(sourceScript.id, sourceScript.languageId, sourceScript.snapshot),
+						this.get(embeddedUri, virtualCode.languageId, virtualCode.snapshot),
+						map,
+						virtualCode,
+					));
+				}
+				return map2DocMap.get(map)!;
+			},
 			*getMaps(virtualCode) {
-				for (const [uri, [snapshot, map]] of context.language.maps.forEach(virtualCode)) {
+				for (const [uri, snapshot, map] of context.language.maps.forEach(virtualCode)) {
 					if (!map2DocMap.has(map)) {
 						const embeddedUri = context.encodeEmbeddedDocumentUri(uri, virtualCode.id);
 						map2DocMap.set(map, new SourceMapWithDocuments(
@@ -188,7 +203,18 @@ export function createLanguageService(
 			});
 		},
 	};
-	const api = {
+	for (const plugin of plugins) {
+		context.plugins.push([plugin, plugin.create(context)]);
+	}
+	const langaugeService = createLanguageServiceBase(plugins, context);
+	return langaugeService;
+}
+
+function createLanguageServiceBase(
+	plugins: LanguageServicePlugin[],
+	context: LanguageServiceContext
+) {
+	return {
 		getSemanticTokenLegend: () => {
 			const tokenModifiers = plugins.map(plugin => plugin.capabilities.semanticTokensProvider?.legend?.tokenModifiers ?? []).flat();
 			const tokenTypes = plugins.map(plugin => plugin.capabilities.semanticTokensProvider?.legend?.tokenTypes ?? []).flat();
@@ -202,46 +228,45 @@ export function createLanguageService(
 		getSignatureHelpTriggerCharacters: () => plugins.map(plugin => plugin.capabilities.signatureHelpProvider?.triggerCharacters ?? []).flat(),
 		getSignatureHelpRetriggerCharacters: () => plugins.map(plugin => plugin.capabilities.signatureHelpProvider?.retriggerCharacters ?? []).flat(),
 
-		format: format.register(context),
+		getDocumentFormattingEdits: format.register(context),
 		getFoldingRanges: foldingRanges.register(context),
 		getSelectionRanges: selectionRanges.register(context),
-		findLinkedEditingRanges: linkedEditing.register(context),
-		findDocumentSymbols: documentSymbols.register(context),
-		findDocumentColors: documentColors.register(context),
+		getLinkedEditingRanges: linkedEditing.register(context),
+		getDocumentSymbols: documentSymbols.register(context),
+		getDocumentColors: documentColors.register(context),
 		getColorPresentations: colorPresentations.register(context),
-
-		doValidation: diagnostics.register(context),
-		findReferences: references.register(context),
-		findFileReferences: fileReferences.register(context),
-		findDefinition: definition.register(context, 'provideDefinition', isDefinitionEnabled),
-		findTypeDefinition: definition.register(context, 'provideTypeDefinition', isTypeDefinitionEnabled),
-		findImplementations: definition.register(context, 'provideImplementation', isImplementationEnabled),
-		prepareRename: renamePrepare.register(context),
-		doRename: rename.register(context),
-		getEditsForFileRename: fileRename.register(context),
+		getDiagnostics: diagnostics.register(context),
+		getWorkspaceDiagnostics: workspaceDiagnostics.register(context),
+		getReferences: references.register(context),
+		getFileReferences: fileReferences.register(context),
+		getDefinition: definition.register(context, 'provideDefinition', isDefinitionEnabled),
+		getTypeDefinition: definition.register(context, 'provideTypeDefinition', isTypeDefinitionEnabled),
+		getImplementations: definition.register(context, 'provideImplementation', isImplementationEnabled),
+		getRenameRange: renamePrepare.register(context),
+		getRenameEdits: rename.register(context),
+		getFileRenameEdits: fileRename.register(context),
 		getSemanticTokens: semanticTokens.register(context),
-		doHover: hover.register(context),
-		doComplete: completions.register(context),
-		doCodeActions: codeActions.register(context),
-		doCodeActionResolve: codeActionResolve.register(context),
-		doCompletionResolve: completionResolve.register(context),
+		getHover: hover.register(context),
+		getCompletionItems: completions.register(context),
+		getCodeActions: codeActions.register(context),
 		getSignatureHelp: signatureHelp.register(context),
-		doCodeLens: codeLens.register(context),
-		doCodeLensResolve: codeLensResolve.register(context),
-		findDocumentHighlights: documentHighlight.register(context),
-		findDocumentLinks: documentLink.register(context),
-		doDocumentLinkResolve: documentLinkResolve.register(context),
-		findWorkspaceSymbols: workspaceSymbol.register(context),
-		doAutoInsert: autoInsert.register(context),
-		doDocumentDrop: documentDrop.register(context),
+		getCodeLenses: codeLens.register(context),
+		getDocumentHighlights: documentHighlight.register(context),
+		getDocumentLinks: documentLink.register(context),
+		getWorkspaceSymbols: workspaceSymbol.register(context),
+		getAutoInsertSnippet: autoInsert.register(context),
+		getDocumentDropEdits: documentDrop.register(context),
 		getInlayHints: inlayHints.register(context),
-		doInlayHintResolve: inlayHintResolve.register(context),
-		callHierarchy: callHierarchy.register(context),
+
+		resolveCodeAction: codeActionResolve.register(context),
+		resolveCompletionItem: completionResolve.register(context),
+		resolveCodeLens: codeLensResolve.register(context),
+		resolveDocumentLink: documentLinkResolve.register(context),
+		resolveInlayHint: inlayHintResolve.register(context),
+
+		...callHierarchy.register(context),
+
 		dispose: () => context.plugins.forEach(plugin => plugin[1].dispose?.()),
 		context,
 	};
-	for (const plugin of plugins) {
-		context.plugins.push([plugin, plugin.create(context, api)]);
-	}
-	return api;
 }

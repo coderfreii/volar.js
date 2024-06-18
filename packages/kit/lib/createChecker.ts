@@ -17,7 +17,7 @@ import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver-protocol';
 export function createTypeScriptChecker(
 	languagePlugins: LanguagePlugin<URI>[],
 	languageServicePlugins: LanguageServicePlugin[],
-	tsconfig: string,
+	tsconfig: string
 ) {
 	const tsconfigPath = asPosix(tsconfig);
 	return createTypeScriptCheckerWorker(languagePlugins, languageServicePlugins, tsconfigPath, env => {
@@ -31,11 +31,11 @@ export function createTypeScriptChecker(
 					undefined,
 					tsconfigPath,
 					undefined,
-					languagePlugins.map(plugin => plugin.typescript?.extraFileExtensions ?? []).flat(),
+					languagePlugins.map(plugin => plugin.typescript?.extraFileExtensions ?? []).flat()
 				);
 				parsed.fileNames = parsed.fileNames.map(asPosix);
 				return parsed;
-			},
+			}
 		);
 	});
 }
@@ -52,7 +52,7 @@ export function createTypeScriptInferredChecker(
 			() => ({
 				options: compilerOptions,
 				fileNames: getScriptFileNames().map(asPosix),
-			}),
+			})
 		);
 	});
 }
@@ -83,11 +83,7 @@ function createTypeScriptCheckerWorker(
 	const language = createLanguage(
 		[
 			...languagePlugins,
-			{
-				getLanguageId(uri) {
-					return resolveFileLanguageId(uri.fsPath);
-				},
-			},
+			{ getLanguageId: uri => resolveFileLanguageId(uri.path) },
 		],
 		createUriMap(ts.sys.useCaseSensitiveFileNames),
 		uri => {
@@ -112,8 +108,9 @@ function createTypeScriptCheckerWorker(
 			else {
 				language.scripts.delete(uri);
 			}
-		},
+		}
 	);
+	const projectHost = getProjectHost(env);
 	language.typescript = {
 		configFileName,
 		sys: ts.sys,
@@ -124,13 +121,13 @@ function createTypeScriptCheckerWorker(
 			ts.sys,
 			language,
 			fileNameToUri,
-			getProjectHost(env),
+			projectHost
 		),
 	};
 	const languageService = createLanguageService(
 		language,
 		languageServicePlugins,
-		env,
+		env
 	);
 
 	return {
@@ -138,6 +135,7 @@ function createTypeScriptCheckerWorker(
 		check,
 		fixErrors,
 		printErrors,
+		projectHost,
 		language,
 
 		// settings
@@ -170,7 +168,7 @@ function createTypeScriptCheckerWorker(
 	function check(fileName: string) {
 		fileName = asPosix(fileName);
 		const uri = fileNameToUri(fileName);
-		return languageService.doValidation(uri);
+		return languageService.getDiagnostics(uri);
 	}
 
 	async function fixErrors(fileName: string, diagnostics: Diagnostic[], only: string[] | undefined, writeFile: (fileName: string, newText: string) => Promise<void>) {
@@ -180,10 +178,10 @@ function createTypeScriptCheckerWorker(
 		if (sourceScript) {
 			const document = languageService.context.documents.get(uri, sourceScript.languageId, sourceScript.snapshot);
 			const range = { start: document.positionAt(0), end: document.positionAt(document.getText().length) };
-			const codeActions = await languageService.doCodeActions(uri, range, { diagnostics, only, triggerKind: 1 satisfies typeof CodeActionTriggerKind.Invoked });
+			const codeActions = await languageService.getCodeActions(uri, range, { diagnostics, only, triggerKind: 1 satisfies typeof CodeActionTriggerKind.Invoked });
 			if (codeActions) {
 				for (let i = 0; i < codeActions.length; i++) {
-					codeActions[i] = await languageService.doCodeActionResolve(codeActions[i]);
+					codeActions[i] = await languageService.resolveCodeAction(codeActions[i]);
 				}
 				const edits = codeActions.map(codeAction => codeAction.edit).filter((edit): edit is NonNullable<typeof edit> => !!edit);
 				if (edits.length) {
@@ -250,7 +248,7 @@ function createTypeScriptCheckerWorker(
 
 function createTypeScriptProjectHost(
 	env: LanguageServiceEnvironment,
-	createParsedCommandLine: () => Pick<ts.ParsedCommandLine, 'options' | 'fileNames'>,
+	createParsedCommandLine: () => Pick<ts.ParsedCommandLine, 'options' | 'fileNames'>
 ) {
 	let scriptSnapshotsCache: Map<string, ts.IScriptSnapshot | undefined> = new Map();
 	let parsedCommandLine = createParsedCommandLine();

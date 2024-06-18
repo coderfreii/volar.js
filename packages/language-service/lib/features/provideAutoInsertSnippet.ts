@@ -15,8 +15,7 @@ export function register(context: LanguageServiceContext) {
 			() => ({ selection, change }),
 			function* (map) {
 				for (const mappedPosition of map.getGeneratedPositions(selection, isAutoInsertEnabled)) {
-					const mapped = map.map.getGeneratedOffset(change.rangeOffset);
-					if (mapped) {
+					for (const mapped of map.map.getGeneratedOffsets(change.rangeOffset)) {
 						yield {
 							selection: mappedPosition,
 							change: {
@@ -25,6 +24,7 @@ export function register(context: LanguageServiceContext) {
 								rangeLength: change.rangeLength,
 							},
 						};
+						break;
 					}
 				}
 			},
@@ -34,7 +34,7 @@ export function register(context: LanguageServiceContext) {
 				}
 				return plugin[1].provideAutoInsertSnippet?.(document, args.selection, args.change, token);
 			},
-			snippet => snippet,
+			snippet => snippet
 		);
 	};
 }

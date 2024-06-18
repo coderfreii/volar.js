@@ -15,7 +15,7 @@ export function activateMarkers(
 	languages: string[],
 	markersOwn: string,
 	getSyncUris: () => Uri[],
-	editor: MonacoEditor['editor'],
+	editor: MonacoEditor['editor']
 ): IDisposable {
 
 	const disposables: IDisposable[] = [];
@@ -34,7 +34,7 @@ export function activateMarkers(
 					stopHostingMarkers(model);
 				}
 			}
-		},
+		}
 	);
 
 	for (const model of editor.getModels()) {
@@ -78,7 +78,7 @@ export function activateMarkers(
 					visibleSubscription.dispose();
 					clearTimeout(timer);
 				}
-			},
+			}
 		);
 
 		doValidation(model);
@@ -94,7 +94,7 @@ export function activateMarkers(
 
 		const version = model.getVersionId();
 		const languageService = await worker.withSyncedResources(getSyncUris());
-		const diagnostics = await languageService.doValidation(model.uri as URI);
+		const diagnostics = await languageService.getDiagnostics(model.uri as URI);
 		if (model.getVersionId() !== version) {
 			return;
 		}
@@ -134,7 +134,7 @@ export function activateAutoInsertion(
 				}
 				listener.clear();
 			}
-		},
+		}
 	);
 
 	for (const model of editor.getModels()) {
@@ -171,7 +171,7 @@ export function activateAutoInsertion(
 
 	async function doAutoInsert(
 		model: editor.ITextModel,
-		lastChange: editor.IModelContentChange,
+		lastChange: editor.IModelContentChange
 	) {
 		if (timeout) {
 			clearTimeout(timeout);
@@ -184,7 +184,7 @@ export function activateAutoInsertion(
 					return;
 				}
 				const languageService = await worker.withSyncedResources(getSyncUris());
-				const edit = await languageService.doAutoInsert(
+				const edit = await languageService.getAutoInsertSnippet(
 					model.uri as URI,
 					fromPosition({
 						lineNumber: lastChange.range.startLineNumber,
@@ -194,7 +194,7 @@ export function activateAutoInsertion(
 						text: lastChange.text,
 						rangeOffset: lastChange.rangeOffset,
 						rangeLength: lastChange.rangeLength,
-					},
+					}
 				);
 				if (model.getVersionId() !== version) {
 					return;

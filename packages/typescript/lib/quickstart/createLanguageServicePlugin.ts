@@ -4,19 +4,22 @@ import { resolveFileLanguageId } from '../common';
 import { decorateLanguageService } from '../node/decorateLanguageService';
 import { decorateLanguageServiceHost, searchExternalFiles } from '../node/decorateLanguageServiceHost';
 import { createLanguage } from '@volar/language-core';
-import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import type { Language, LanguagePlugin } from '@volar/language-core/lib/types';
 import { FileMap } from '@volar/language-core/lib/utils';
 
-const externalFiles = new WeakMap<ts.server.Project, string[]>();
-const projectExternalFileExtensions = new WeakMap<ts.server.Project, string[]>();
-const decoratedLanguageServices = new WeakSet<ts.LanguageService>();
-const decoratedLanguageServiceHosts = new WeakSet<ts.LanguageServiceHost>();
+export const externalFiles = new WeakMap<ts.server.Project, string[]>();
+export const projectExternalFileExtensions = new WeakMap<ts.server.Project, string[]>();
+export const decoratedLanguageServices = new WeakSet<ts.LanguageService>();
+export const decoratedLanguageServiceHosts = new WeakSet<ts.LanguageServiceHost>();
 
 export function createLanguageServicePlugin(
-	loadLanguagePlugins: (
+	create: (
 		ts: typeof import('typescript'),
 		info: ts.server.PluginCreateInfo
-	) => LanguagePlugin<string>[],
+	) => {
+		languagePlugins: LanguagePlugin<string>[],
+		setup?: (language: Language<string>) => void;
+	}
 ): ts.server.PluginModuleFactory {
 	return modules => {
 		const { typescript: ts } = modules;
@@ -29,7 +32,7 @@ export function createLanguageServicePlugin(
 					decoratedLanguageServices.add(info.languageService);
 					decoratedLanguageServiceHosts.add(info.languageServiceHost);
 
-					const languagePlugins = loadLanguagePlugins(ts, info);
+					const { languagePlugins, setup } = create(ts, info);
 					const extensions = languagePlugins
 						.map(plugin => plugin.typescript?.extraFileExtensions.map(ext => '.' + ext.extension) ?? [])
 						.flat();
@@ -40,11 +43,7 @@ export function createLanguageServicePlugin(
 					const language = createLanguage<string>(
 						[
 							...languagePlugins,
-							{
-								getLanguageId(fileName) {
-									return resolveFileLanguageId(fileName);
-								},
-							},
+							{ getLanguageId: resolveFileLanguageId },
 						],
 						new FileMap(ts.sys.useCaseSensitiveFileNames),
 						fileName => {
@@ -66,6 +65,7 @@ export function createLanguageServicePlugin(
 
 					decorateLanguageService(language, info.languageService);
 					decorateLanguageServiceHost(ts, language, info.languageServiceHost);
+					setup?.(language);
 				}
 
 				return info.languageService;
@@ -76,7 +76,8 @@ export function createLanguageServicePlugin(
 					|| !externalFiles.has(project)
 				) {
 					const oldFiles = externalFiles.get(project);
-					const newFiles = searchExternalFiles(ts, project, projectExternalFileExtensions.get(project)!);
+					const extensions = projectExternalFileExtensions.get(project);
+					const newFiles = extensions?.length ? searchExternalFiles(ts, project, extensions) : [];
 					externalFiles.set(project, newFiles);
 					if (oldFiles && !arrayItemsEqual(oldFiles, newFiles)) {
 						project.refreshDiagnostics();

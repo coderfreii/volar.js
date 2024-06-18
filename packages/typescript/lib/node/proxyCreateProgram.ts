@@ -34,10 +34,10 @@ const objectEqual = (a: any, b: any) => {
 export function proxyCreateProgram(
 	ts: typeof import('typescript'),
 	original: typeof ts['createProgram'],
-	getLanguagePlugins: (ts: typeof import('typescript'), options: ts.CreateProgramOptions) => LanguagePlugin<string>[],
+	getLanguagePlugins: (ts: typeof import('typescript'), options: ts.CreateProgramOptions) => LanguagePlugin<string>[]
 ) {
 	const sourceFileSnapshots = new FileMap<[ts.SourceFile | undefined, ts.IScriptSnapshot | undefined]>(ts.sys.useCaseSensitiveFileNames);
-	const parsedSourceFiles = new WeakMap<ts.SourceFile, ts.SourceFile>();
+	const parsedSourceFiles = new WeakMap<ts.SourceFile, ts.SourceFile | undefined>();
 
 	let lastOptions: ts.CreateProgramOptions | undefined;
 	let languagePlugins: LanguagePlugin<string>[] | undefined;
@@ -63,11 +63,7 @@ export function proxyCreateProgram(
 				language = createLanguage<string>(
 					[
 						...languagePlugins,
-						{
-							getLanguageId(fileName) {
-								return resolveFileLanguageId(fileName);
-							},
-						},
+						{ getLanguageId: resolveFileLanguageId },
 					],
 					new FileMap(ts.sys.useCaseSensitiveFileNames),
 					fileName => {
@@ -111,7 +107,7 @@ export function proxyCreateProgram(
 				fileName,
 				languageVersionOrOptions,
 				onError,
-				shouldCreateNewSourceFile,
+				shouldCreateNewSourceFile
 			) => {
 				const originalSourceFile = originalHost.getSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
 				if (
@@ -141,11 +137,11 @@ export function proxyCreateProgram(
 				if (!parsedSourceFiles.has(originalSourceFile)) {
 					const sourceScript = language!.scripts.get(fileName);
 					assert(!!sourceScript, '!!sourceScript');
-					parsedSourceFiles.set(originalSourceFile, originalSourceFile);
+					parsedSourceFiles.set(originalSourceFile, undefined);
 					if (sourceScript.generated?.languagePlugin.typescript) {
 						const { getServiceScript, getExtraServiceScripts } = sourceScript.generated.languagePlugin.typescript;
 						const serviceScript = getServiceScript(sourceScript.generated.root);
-						if (serviceScript) {
+						if (serviceScript && !serviceScript.preventLeadingOffset) {
 							let patchedText = originalSourceFile.text.split('\n').map(line => ' '.repeat(line.length)).join('\n');
 							let scriptKind = ts.ScriptKind.TS;
 							scriptKind = serviceScript.scriptKind;
@@ -155,7 +151,7 @@ export function proxyCreateProgram(
 								patchedText,
 								languageVersionOrOptions,
 								undefined,
-								scriptKind,
+								scriptKind
 							);
 							// @ts-expect-error
 							parsedSourceFile.version = originalSourceFile.version;
@@ -166,7 +162,7 @@ export function proxyCreateProgram(
 						}
 					}
 				}
-				return parsedSourceFiles.get(originalSourceFile);
+				return parsedSourceFiles.get(originalSourceFile) ?? originalSourceFile;
 			};
 
 			if (extensions.length) {

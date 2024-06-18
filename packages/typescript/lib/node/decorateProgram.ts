@@ -1,5 +1,5 @@
 import type * as ts from 'typescript';
-import { notEmpty } from './utils';
+import { getServiceScript, notEmpty } from './utils';
 import { transformDiagnostic, fillSourceFileText } from './transform';
 import type { Language } from '@volar/language-core/lib/types';
 
@@ -22,30 +22,60 @@ export function decorateProgram(language: Language<string>, program: ts.Program)
 		return {
 			...result,
 			diagnostics: result.diagnostics
-				.map(d => transformDiagnostic(language, d, true))
+				.map(d => transformDiagnostic(language, d, program, true))
 				.filter(notEmpty),
 		};
 	};
 	program.getSyntacticDiagnostics = (sourceFile, cancellationToken) => {
-		return getSyntacticDiagnostics(sourceFile, cancellationToken)
-			.map(d => transformDiagnostic(language, d, true))
-			.filter(notEmpty);
+		if (!sourceFile) {
+			return getSyntacticDiagnostics(undefined, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty);
+		}
+		else {
+			const [serviceScript, targetScript, sourceScript] = getServiceScript(language, sourceFile.fileName);
+			const actualSourceFile = targetScript ? program.getSourceFile(targetScript.id) : sourceFile;
+			return getSyntacticDiagnostics(actualSourceFile, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty)
+				.filter(d => !serviceScript || !d.file || language.scripts.get(d.file.fileName) === sourceScript);
+		}
 	};
 	program.getSemanticDiagnostics = (sourceFile, cancellationToken) => {
-		return getSemanticDiagnostics(sourceFile, cancellationToken)
-			.map(d => transformDiagnostic(language, d, true))
-			.filter(notEmpty);
+		if (!sourceFile) {
+			return getSemanticDiagnostics(undefined, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty);
+		}
+		else {
+			const [serviceScript, targetScript, sourceScript] = getServiceScript(language, sourceFile.fileName);
+			const actualSourceFile = targetScript ? program.getSourceFile(targetScript.id) : sourceFile;
+			return getSemanticDiagnostics(actualSourceFile, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty)
+				.filter(d => !serviceScript || !d.file || language.scripts.get(d.file.fileName) === sourceScript);
+		}
 	};
 	program.getGlobalDiagnostics = cancellationToken => {
 		return getGlobalDiagnostics(cancellationToken)
-			.map(d => transformDiagnostic(language, d, true))
+			.map(d => transformDiagnostic(language, d, program, true))
 			.filter(notEmpty);
 	};
 	// @ts-ignore
 	program.getBindAndCheckDiagnostics = (sourceFile, cancellationToken) => {
-		return (getBindAndCheckDiagnostics as typeof getSyntacticDiagnostics)(sourceFile, cancellationToken)
-			.map(d => transformDiagnostic(language, d, true))
-			.filter(notEmpty);
+		if (!sourceFile) {
+			return (getBindAndCheckDiagnostics as typeof getSyntacticDiagnostics)(undefined, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty);
+		}
+		else {
+			const [serviceScript, targetScript, sourceScript] = getServiceScript(language, sourceFile.fileName);
+			const actualSourceFile = targetScript ? program.getSourceFile(targetScript.id) : sourceFile;
+			return (getBindAndCheckDiagnostics as typeof getSyntacticDiagnostics)(actualSourceFile, cancellationToken)
+				.map(d => transformDiagnostic(language, d, program, true))
+				.filter(notEmpty)
+				.filter(d => !serviceScript || language.scripts.get(d.file.fileName) === sourceScript);
+		}
 	};
 
 	// fix https://github.com/vuejs/language-tools/issues/4099 with `incremental`

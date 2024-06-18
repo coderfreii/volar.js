@@ -55,7 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							extension.exports.volarLabs.languageServerProtocol.GetVirtualFileRequest.type,
 							{
 								uri: currentDocument.uri.toString(),
-							} satisfies GetVirtualFileRequest.ParamsType,
+							} satisfies GetVirtualFileRequest.ParamsType
 						);
 						if (virtualFile) {
 							items.push({
@@ -84,7 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const uri = vscode.Uri.from({
 				scheme: VOLAR_VIRTUAL_CODE_SCHEME,
 				// @ts-expect-error
-				authority: element.client._id,
+				authority: element.client._id.toLowerCase(),
 				path: '/' + element.generated.virtualCodeId + ext,
 				fragment: encodeURIComponent(element.sourceDocumentUri),
 			});
@@ -147,7 +147,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				);
 			}
 		}),
-		await activateShowVirtualFiles(extensions),
+		await activateShowVirtualFiles(extensions)
 	);
 
 	useVolarExtensions(

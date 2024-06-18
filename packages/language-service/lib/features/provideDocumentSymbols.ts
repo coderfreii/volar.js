@@ -16,7 +16,7 @@ export function register(context: LanguageServiceContext) {
 			context,
 			uri,
 			map => map.map.mappings.some(mapping => isSymbolsEnabled(mapping.data)),
-			async (plugin, document) => {
+			(plugin, document) => {
 				if (token.isCancellationRequested) {
 					return;
 				}
@@ -29,7 +29,7 @@ export function register(context: LanguageServiceContext) {
 				return data
 					.map(symbol => transformDocumentSymbol(
 						symbol,
-						range => map.getSourceRange(range, isSymbolsEnabled),
+						range => map.getSourceRange(range, isSymbolsEnabled)
 					))
 					.filter(notEmpty);
 			},
@@ -52,7 +52,7 @@ export function register(context: LanguageServiceContext) {
 					}
 				}
 				return results.flat();
-			},
+			}
 		);
 	};
 }

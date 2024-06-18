@@ -1,11 +1,10 @@
-
 import type * as ts from 'typescript';
 import { resolveFileLanguageId } from '../common';
 import { decorateLanguageService } from '../node/decorateLanguageService';
 import { decorateLanguageServiceHost, searchExternalFiles } from '../node/decorateLanguageServiceHost';
 import { arrayItemsEqual } from './createLanguageServicePlugin';
 import { createLanguage } from '@volar/language-core';
-import type { LanguagePlugin } from '@volar/language-core/lib/types';
+import type { Language, LanguagePlugin } from '@volar/language-core/lib/types';
 import { FileMap } from '@volar/language-core/lib/utils';
 
 const externalFiles = new WeakMap<ts.server.Project, string[]>();
@@ -15,10 +14,13 @@ const decoratedLanguageServiceHosts = new WeakSet<ts.LanguageServiceHost>();
 export function createAsyncLanguageServicePlugin(
 	extensions: string[],
 	scriptKind: ts.ScriptKind,
-	loadLanguagePlugins: (
+	create: (
 		ts: typeof import('typescript'),
 		info: ts.server.PluginCreateInfo
-	) => Promise<LanguagePlugin<string>[]>,
+	) => Promise<{
+		languagePlugins: LanguagePlugin<string>[],
+		setup?: (language: Language<string>) => void;
+	}>
 ): ts.server.PluginModuleFactory {
 	return modules => {
 		const { typescript: ts } = modules;
@@ -68,16 +70,12 @@ export function createAsyncLanguageServicePlugin(
 						};
 					}
 
-					loadLanguagePlugins(ts, info).then(languagePlugins => {
+					create(ts, info).then(({ languagePlugins, setup }) => {
 						const syncedScriptVersions = new FileMap<string>(ts.sys.useCaseSensitiveFileNames);
 						const language = createLanguage<string>(
 							[
 								...languagePlugins,
-								{
-									getLanguageId(fileName) {
-										return resolveFileLanguageId(fileName);
-									},
-								},
+								{ getLanguageId: resolveFileLanguageId },
 							],
 							new FileMap(ts.sys.useCaseSensitiveFileNames),
 							fileName => {
@@ -101,6 +99,7 @@ export function createAsyncLanguageServicePlugin(
 
 						decorateLanguageService(language, info.languageService);
 						decorateLanguageServiceHost(ts, language, info.languageServiceHost);
+						setup?.(language);
 
 						info.project.markAsDirty();
 						initialized = true;
@@ -115,7 +114,7 @@ export function createAsyncLanguageServicePlugin(
 					|| !externalFiles.has(project)
 				) {
 					const oldFiles = externalFiles.get(project);
-					const newFiles = searchExternalFiles(ts, project, extensions);
+					const newFiles = extensions.length ? searchExternalFiles(ts, project, extensions) : [];
 					externalFiles.set(project, newFiles);
 					if (oldFiles && !arrayItemsEqual(oldFiles, newFiles)) {
 						project.refreshDiagnostics();

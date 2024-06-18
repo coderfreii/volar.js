@@ -7,7 +7,7 @@ export function activateAutomaticTypeAcquisition(
 	uriConverter: {
 		asFileName(uri: URI): string;
 	},
-	onFetch?: (path: string, content: string) => void,
+	onFetch?: (path: string, content: string) => void
 ) {
 	const textCache = new Map<string, Promise<string | undefined>>();
 	const jsonCache = new Map<string, Promise<any>>();
@@ -69,7 +69,7 @@ export function activateAutomaticTypeAcquisition(
 					return await _readFile(path);
 				}
 			},
-			async readDirectory(uri) {
+			readDirectory(uri) {
 
 				const fileName = uriConverter.asFileName(uri);
 

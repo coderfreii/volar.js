@@ -43,7 +43,7 @@ export function register(context: LanguageServiceContext) {
 					}
 				})
 				.filter(notEmpty),
-			arr => dedupe.withLocations(arr.flat()),
+			arr => dedupe.withLocations(arr.flat())
 		);
 	};
 }

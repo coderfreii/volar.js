@@ -28,10 +28,11 @@ export function createProcessor(
 		'yaml': '.yaml',
 		'markdown': '.md',
 	},
-	supportsAutofix = true,
+	supportsAutofix = true
 ): Linter.Processor {
 	const language = createLanguage<string>(languagePlugins, new FileMap(caseSensitive), () => { });
 	const documents = new FileMap<{
+		sourceScript: SourceScript<string>;
 		sourceDocument: TextDocument;
 		embeddedDocuments: TextDocument[];
 		codes: VirtualCode[];
@@ -70,6 +71,7 @@ export function createProcessor(
 					}
 				}
 				documents.set(filename, {
+					sourceScript,
 					sourceDocument: TextDocument.create(filename, sourceScript.languageId, 0, text),
 					embeddedDocuments,
 					codes,
@@ -81,10 +83,10 @@ export function createProcessor(
 			filename = filename.replace(windowsPath, '/');
 			const docs = documents.get(filename);
 			if (docs) {
-				const { codes, sourceDocument, embeddedDocuments } = docs;
+				const { sourceScript, codes, sourceDocument, embeddedDocuments } = docs;
 				for (let i = 0; i < messagesArr.length; i++) {
 					const code = codes[i];
-					const map = language.maps.get(code);
+					const map = language.maps.get(code, sourceScript);
 					if (!map) {
 						messagesArr[i].length = 0;
 						continue;

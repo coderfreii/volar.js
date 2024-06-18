@@ -6,7 +6,7 @@ export function createResolveModuleName<T>(
 	ts: typeof import('typescript'),
 	host: ts.ModuleResolutionHost,
 	languagePlugins: LanguagePlugin<any>[],
-	getSourceScript: (fileName: string) => SourceScript<T> | undefined,
+	getSourceScript: (fileName: string) => SourceScript<T> | undefined
 ) {
 	const toSourceFileInfo = new Map<string, {
 		sourceFileName: string;
@@ -47,6 +47,24 @@ export function createResolveModuleName<T>(
 											extension: serviceScript.extension,
 										});
 									}
+									return true;
+								}
+							}
+						}
+					}
+				}
+				if (typescript.resolveHiddenExtensions && fileName.endsWith(`.d.ts`)) {
+					for (const { extension } of typescript.extraFileExtensions) {
+						const sourceFileName = fileName.slice(0, -`.d.ts`.length) + `.${extension}`;
+						if (fileExists(sourceFileName)) {
+							const sourceScript = getSourceScript(sourceFileName);
+							if (sourceScript?.generated) {
+								const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(sourceScript.generated.root);
+								if (serviceScript) {
+									toSourceFileInfo.set(fileName, {
+										sourceFileName,
+										extension: serviceScript.extension,
+									});
 									return true;
 								}
 							}

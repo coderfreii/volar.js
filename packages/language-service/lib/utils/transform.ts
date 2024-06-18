@@ -14,48 +14,42 @@ export function transformDocumentLinkTarget(_target: string, context: LanguageSe
 		return target;
 	}
 
-	target = decoded[0];
-	const sourceScript = context.language.scripts.get(target);
+	const embeddedRange = target.fragment.match(/^L(\d+)(,(\d+))?(-L(\d+)(,(\d+))?)?$/);
+	const sourceScript = context.language.scripts.get(decoded[0]);
 	const virtualCode = sourceScript?.generated?.embeddedCodes.get(decoded[1]);
 
-	if (virtualCode) {
-		for (const map of context.documents.getMaps(virtualCode)) {
+	target = decoded[0];
 
+	if (embeddedRange && virtualCode) {
+		for (const map of context.documents.getMaps(virtualCode)) {
 			if (!map.map.mappings.some(mapping => isDocumentLinkEnabled(mapping.data))) {
 				continue;
 			}
 
-			target = URI.parse(map.sourceDocument.uri);
-
-			const hash = target.fragment;
-			const range = hash.match(/^L(\d+)(,(\d+))?(-L(\d+)(,(\d+))?)?$/);
-
-			if (range) {
-				const startLine = Number(range[1]) - 1;
-				const startCharacter = Number(range[3] ?? 1) - 1;
-				if (range[5] !== undefined) {
-					const endLine = Number(range[5]) - 1;
-					const endCharacter = Number(range[7] ?? 1) - 1;
-					const sourceRange = map.getSourceRange({
-						start: { line: startLine, character: startCharacter },
-						end: { line: endLine, character: endCharacter },
+			const startLine = Number(embeddedRange[1]) - 1;
+			const startCharacter = Number(embeddedRange[3] ?? 1) - 1;
+			if (embeddedRange[5] !== undefined) {
+				const endLine = Number(embeddedRange[5]) - 1;
+				const endCharacter = Number(embeddedRange[7] ?? 1) - 1;
+				const sourceRange = map.getSourceRange({
+					start: { line: startLine, character: startCharacter },
+					end: { line: endLine, character: endCharacter },
+				});
+				if (sourceRange) {
+					target = target.with({
+						fragment: 'L' + (sourceRange.start.line + 1) + ',' + (sourceRange.start.character + 1)
+							+ '-L' + (sourceRange.end.line + 1) + ',' + (sourceRange.end.character + 1),
 					});
-					if (sourceRange) {
-						target = target.with({
-							fragment: 'L' + (sourceRange.start.line + 1) + ',' + (sourceRange.start.character + 1)
-								+ '-L' + (sourceRange.end.line + 1) + ',' + (sourceRange.end.character + 1),
-						});
-						break;
-					}
+					break;
 				}
-				else {
-					const sourcePos = map.getSourcePosition({ line: startLine, character: startCharacter });
-					if (sourcePos) {
-						target = target.with({
-							fragment: 'L' + (sourcePos.line + 1) + ',' + (sourcePos.character + 1),
-						});
-						break;
-					}
+			}
+			else {
+				const sourcePos = map.getSourcePosition({ line: startLine, character: startCharacter });
+				if (sourcePos) {
+					target = target.with({
+						fragment: 'L' + (sourcePos.line + 1) + ',' + (sourcePos.character + 1),
+					});
+					break;
 				}
 			}
 		}
@@ -100,7 +94,7 @@ export function transformCompletionList<T extends vscode.CompletionList>(
 	completionList: T,
 	getOtherRange: (range: vscode.Range) => vscode.Range | undefined,
 	document: TextDocument,
-	context: LanguageServiceContext,
+	context: LanguageServiceContext
 ): T {
 	return {
 		isIncomplete: completionList.isIncomplete,
@@ -223,7 +217,7 @@ export function transformSelectionRanges<T extends vscode.SelectionRange>(locati
 export function transformTextEdit<T extends vscode.TextEdit | vscode.InsertReplaceEdit>(
 	textEdit: T,
 	getOtherRange: (range: vscode.Range) => vscode.Range | undefined,
-	document: vscode.TextDocument,
+	document: vscode.TextDocument
 ): T | undefined {
 	if ('range' in textEdit) {
 
@@ -277,7 +271,7 @@ function tryRecoverTextEdit(
 	getOtherRange: (range: vscode.Range) => vscode.Range | undefined,
 	replaceRange: vscode.Range,
 	newText: string,
-	document: vscode.TextDocument,
+	document: vscode.TextDocument
 ): vscode.TextEdit | undefined {
 	if (replaceRange.start.line === replaceRange.end.line && replaceRange.end.character > replaceRange.start.character) {
 
@@ -321,7 +315,7 @@ export function transformWorkspaceEdit(
 	edit: vscode.WorkspaceEdit,
 	context: LanguageServiceContext,
 	mode: 'fileName' | 'rename' | 'codeAction' | undefined,
-	versions: Record<string, number> = {},
+	versions: Record<string, number> = {}
 ) {
 
 	const sourceResult: vscode.WorkspaceEdit = {};

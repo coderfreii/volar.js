@@ -32,7 +32,7 @@ export function register(context: LanguageServiceContext) {
 		uri: URI,
 		position: vscode.Position,
 		completionContext: vscode.CompletionContext = { triggerKind: 1 satisfies typeof vscode.CompletionTriggerKind.Invoked, },
-		token = NoneCancellationToken,
+		token = NoneCancellationToken
 	) => {
 		const sourceScript = context.language.scripts.get(uri);
 		if (!sourceScript) {
@@ -96,7 +96,7 @@ export function register(context: LanguageServiceContext) {
 								cacheData.list,
 								range => map.getSourceRange(range),
 								map.embeddedDocument,
-								context,
+								context
 							);
 						}
 					}
@@ -148,7 +148,7 @@ export function register(context: LanguageServiceContext) {
 				document: TextDocument,
 				position: vscode.Position,
 				map?: SourceMapWithDocuments,
-				codeInfo?: CodeInformation | undefined,
+				codeInfo?: CodeInformation | undefined
 			) => {
 
 				for (const plugin of sortedPlugins) {
@@ -214,7 +214,7 @@ export function register(context: LanguageServiceContext) {
 							completionList,
 							range => map.getSourceRange(range, isCompletionEnabled),
 							document,
-							context,
+							context
 						);
 					}
 

@@ -19,7 +19,7 @@ export interface ServiceReferencesCodeLensData {
 	sourceFileUri: string;
 	workerFileUri: string;
 	workerFileRange: vscode.Range;
-	serviceIndex: number;
+	pluginIndex: number;
 }
 
 export function register(context: LanguageServiceContext) {
@@ -57,7 +57,7 @@ export function register(context: LanguageServiceContext) {
 						sourceFileUri: uri.toString(),
 						workerFileUri: document.uri,
 						workerFileRange: range,
-						serviceIndex: pluginIndex,
+						pluginIndex: pluginIndex,
 					} satisfies ServiceReferencesCodeLensData,
 				}));
 
@@ -84,7 +84,7 @@ export function register(context: LanguageServiceContext) {
 					})
 					.filter(notEmpty);
 			},
-			arr => arr.flat(),
+			arr => arr.flat()
 		) ?? [];
 	};
 }

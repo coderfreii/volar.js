@@ -51,7 +51,7 @@ export function register(context: LanguageServiceContext) {
 						return colorPresentation;
 					})
 					.filter(notEmpty);
-			},
+			}
 		);
 	};
 }

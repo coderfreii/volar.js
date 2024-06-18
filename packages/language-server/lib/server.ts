@@ -27,7 +27,7 @@ export type Holder = {
 
 export function createServerBase(
 	connection: vscode.Connection,
-	fs: FileSystem,
+	fs: FileSystem
 ) {
 
 	const holder: Holder = {
@@ -97,11 +97,12 @@ export function createServerBase(
 
 	function initialize(
 		initializeParams: vscode.InitializeParams,
+		project: LanguageServerProject,
 		languageServicePlugins: LanguageServicePlugin[],
 		projectFacade: ProjectFacade,
 		options?: {
 			pullModelDiagnostics?: boolean;
-		},
+		}
 	) {
 		holder.initializeParams = initializeParams;
 		holder.languageServicePlugins = languageServicePlugins;
@@ -198,16 +199,16 @@ export function createServerBase(
 			documentHighlightProvider: capabilitiesArr.some(data => data.documentHighlightProvider) ? true : undefined,
 			workspaceSymbolProvider: capabilitiesArr.some(data => data.workspaceSymbolProvider) ? true : undefined,
 			renameProvider: capabilitiesArr.some(data => data.renameProvider)
-				? { prepareProvider: capabilitiesArr.some(data => data.renameProvider?.prepareProvider) }
+				? { prepareProvider: capabilitiesArr.some(data => data.renameProvider?.prepareProvider) || undefined }
 				: undefined,
 			documentLinkProvider: capabilitiesArr.some(data => data.documentLinkProvider)
-				? { resolveProvider: capabilitiesArr.some(data => data.documentLinkProvider?.resolveProvider) }
+				? { resolveProvider: capabilitiesArr.some(data => data.documentLinkProvider?.resolveProvider) || undefined }
 				: undefined,
 			codeLensProvider: capabilitiesArr.some(data => data.codeLensProvider)
-				? { resolveProvider: capabilitiesArr.some(data => data.codeLensProvider?.resolveProvider) }
+				? { resolveProvider: capabilitiesArr.some(data => data.codeLensProvider?.resolveProvider) || undefined }
 				: undefined,
 			inlayHintProvider: capabilitiesArr.some(data => data.inlayHintProvider)
-				? { resolveProvider: capabilitiesArr.some(data => data.inlayHintProvider?.resolveProvider) }
+				? { resolveProvider: capabilitiesArr.some(data => data.inlayHintProvider?.resolveProvider) || undefined }
 				: undefined,
 			signatureHelpProvider: capabilitiesArr.some(data => data.signatureHelpProvider)
 				? {
@@ -218,7 +219,7 @@ export function createServerBase(
 				: undefined,
 			completionProvider: capabilitiesArr.some(data => data.completionProvider)
 				? {
-					resolveProvider: capabilitiesArr.some(data => data.completionProvider?.resolveProvider),
+					resolveProvider: capabilitiesArr.some(data => data.completionProvider?.resolveProvider) || undefined,
 					triggerCharacters: [...new Set(capabilitiesArr.map(data => data.completionProvider?.triggerCharacters ?? []).flat())],
 				}
 				: undefined,
@@ -234,10 +235,8 @@ export function createServerBase(
 				: undefined,
 			codeActionProvider: capabilitiesArr.some(data => data.codeActionProvider)
 				? {
-					resolveProvider: capabilitiesArr.some(data => data.codeActionProvider?.resolveProvider),
-					codeActionKinds: capabilitiesArr
-						.filter(data => data.codeActionProvider)
-						.every(data => data.codeActionProvider?.codeActionKinds)
+					resolveProvider: capabilitiesArr.some(data => data.codeActionProvider?.resolveProvider) || undefined,
+					codeActionKinds: capabilitiesArr.some(data => data.codeActionProvider?.codeActionKinds)
 						? [...new Set(capabilitiesArr.map(data => data.codeActionProvider?.codeActionKinds ?? []).flat())]
 						: undefined,
 				}
@@ -245,7 +244,7 @@ export function createServerBase(
 			diagnosticProvider: capabilitiesArr.some(data => data.diagnosticProvider)
 				? {
 					interFileDependencies: true,
-					workspaceDiagnostics: false,
+					workspaceDiagnostics: capabilitiesArr.some(data => data.diagnosticProvider?.workspaceDiagnostics),
 				}
 				: undefined,
 			documentOnTypeFormattingProvider: capabilitiesArr.some(data => data.documentOnTypeFormattingProvider)
@@ -267,15 +266,18 @@ export function createServerBase(
 			for (const data of capabilitiesArr) {
 				if (data.autoInsertionProvider) {
 					const { triggerCharacters, configurationSections } = data.autoInsertionProvider;
-					allTriggerCharacters.push(...triggerCharacters);
 					if (configurationSections) {
 						if (configurationSections.length !== triggerCharacters.length) {
 							throw new Error('configurationSections.length !== triggerCharacters.length');
 						}
-						allConfigurationSections.push(...configurationSections);
+						for (let i = 0; i < configurationSections.length; i++) {
+							tryAdd(triggerCharacters[i], configurationSections[i]);
+						}
 					}
 					else {
-						allConfigurationSections.push(...triggerCharacters.map(() => undefined));
+						for (const char of triggerCharacters) {
+							tryAdd(char);
+						}
 					}
 				}
 			}

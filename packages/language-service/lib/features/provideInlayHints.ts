@@ -31,7 +31,7 @@ export function register(context: LanguageServiceContext) {
 					map.sourceDocument.offsetAt(range.start),
 					map.sourceDocument.offsetAt(range.end),
 					map.map,
-					isInlayHintsEnabled,
+					isInlayHintsEnabled
 				);
 				if (mapped) {
 					yield {
@@ -78,7 +78,7 @@ export function register(context: LanguageServiceContext) {
 					})
 					.filter(notEmpty);
 			},
-			arr => arr.flat(),
+			arr => arr.flat()
 		);
 	};
 }

@@ -153,7 +153,7 @@ export function register(
 
 				return link;
 			}).filter(notEmpty),
-			arr => dedupe.withLocationLinks(arr.flat()),
+			arr => dedupe.withLocationLinks(arr.flat())
 		);
 	};
 }

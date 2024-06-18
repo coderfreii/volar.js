@@ -38,7 +38,7 @@ export function register(context: LanguageServiceContext) {
 						.map(range => map.getSourceRange(range, isLinkedEditingEnabled))
 						.filter(notEmpty),
 				};
-			},
+			}
 		);
 	};
 }

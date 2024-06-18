@@ -51,7 +51,7 @@ export function register(context: LanguageServiceContext) {
 		const endOffset = document.offsetAt(range.end);
 
 		for (const code of forEachEmbeddedCode(sourceScript.generated.root)) {
-			const map = context.language.maps.get(code);
+			const map = context.language.maps.get(code, sourceScript);
 			if (map) {
 				const embeddedRange = findOverlapCodeRange(startOffset, endOffset, map, isFormattingEnabled);
 				if (embeddedRange) {
@@ -113,7 +113,7 @@ export function register(context: LanguageServiceContext) {
 								code,
 								level,
 								embeddedPosition,
-								onTypeParams.ch,
+								onTypeParams.ch
 							);
 						}
 					}
@@ -127,7 +127,7 @@ export function register(context: LanguageServiceContext) {
 							{
 								start: docMap.embeddedDocument.positionAt(embeddedRange.start),
 								end: docMap.embeddedDocument.positionAt(embeddedRange.end),
-							},
+							}
 						);
 					}
 
@@ -182,7 +182,7 @@ export function register(context: LanguageServiceContext) {
 			virtualCode: VirtualCode | undefined,
 			embeddedLevel: number,
 			rangeOrPosition: vscode.Range | vscode.Position,
-			ch?: string,
+			ch?: string
 		) {
 
 			if (context.disabledEmbeddedDocumentUris.get(URI.parse(document.uri))) {
@@ -208,7 +208,7 @@ export function register(context: LanguageServiceContext) {
 					codeOptions.initialIndentLevel = computeInitialIndent(
 						sourceDocument.getText(),
 						sourceDocument.offsetAt({ line: startPosition.line, character: 0 }),
-						options,
+						options
 					);
 				}
 				for (const plugin of context.plugins) {
@@ -257,32 +257,24 @@ export function register(context: LanguageServiceContext) {
 	};
 
 	function createDocMap(virtualCode: VirtualCode, documentUri: URI, sourceLanguageId: string, _sourceSnapshot: ts.IScriptSnapshot) {
-		const mapOfMap = createUriMap<[ts.IScriptSnapshot, SourceMap<CodeInformation>]>();
-		updateVirtualCodeMapOfMap(virtualCode, mapOfMap, sourceFileUri2 => {
-			if (!sourceFileUri2) {
-				return [documentUri, _sourceSnapshot];
-			}
-		});
-		if (mapOfMap.has(documentUri) && mapOfMap.get(documentUri)![0] === _sourceSnapshot) {
-			const map = mapOfMap.get(documentUri)!;
-			const version = fakeVersion++;
-			return new SourceMapWithDocuments(
-				TextDocument.create(
-					documentUri.toString(),
-					sourceLanguageId,
-					version,
-					_sourceSnapshot.getText(0, _sourceSnapshot.getLength())
-				),
-				TextDocument.create(
-					context.encodeEmbeddedDocumentUri(documentUri, virtualCode.id).toString(),
-					virtualCode.languageId,
-					version,
-					virtualCode.snapshot.getText(0, virtualCode.snapshot.getLength())
-				),
-				map[1],
-				virtualCode,
-			);
-		}
+		const map = new SourceMap(virtualCode.mappings);
+		const version = fakeVersion++;
+		return new SourceMapWithDocuments(
+			TextDocument.create(
+				documentUri.toString(),
+				sourceLanguageId,
+				version,
+				_sourceSnapshot.getText(0, _sourceSnapshot.getLength())
+			),
+			TextDocument.create(
+				context.encodeEmbeddedDocumentUri(documentUri, virtualCode.id).toString(),
+				virtualCode.languageId,
+				version,
+				virtualCode.snapshot.getText(0, virtualCode.snapshot.getLength())
+			),
+			map,
+			virtualCode,
+		);
 	}
 }
 

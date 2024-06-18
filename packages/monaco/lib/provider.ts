@@ -28,7 +28,7 @@ import {
 	toLinkedEditingRanges,
 	toLocation,
 	toLocationLink,
-	toSelectionRange,
+	toSelectionRanges,
 	toSemanticTokens,
 	toSignatureHelp,
 	toTextEdit,
@@ -42,7 +42,7 @@ import type {LanguageService} from '@volar/language-service/lib/languageService.
 
 export async function createLanguageFeaturesProvider(
 	worker: editor.MonacoWebWorker<LanguageService>,
-	getSyncUris: () => Uri[],
+	getSyncUris: () => Uri[]
 ): Promise<
 	languages.HoverProvider &
 	languages.DocumentSymbolProvider &
@@ -94,7 +94,7 @@ export async function createLanguageFeaturesProvider(
 			const codeResult = await languageService.getSemanticTokens(
 				model.uri as URI,
 				undefined,
-				legend,
+				legend
 			);
 			if (codeResult) {
 				return toSemanticTokens(codeResult);
@@ -110,16 +110,16 @@ export async function createLanguageFeaturesProvider(
 		releaseDocumentSemanticTokens() { },
 		async provideDocumentSymbols(model) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDocumentSymbols(model.uri as URI);
+			const codeResult = await languageService.getDocumentSymbols(model.uri as URI);
 			if (codeResult) {
 				return codeResult.map(toDocumentSymbol);
 			}
 		},
 		async provideDocumentHighlights(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDocumentHighlights(
+			const codeResult = await languageService.getDocumentHighlights(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return codeResult.map(toDocumentHighlight);
@@ -127,9 +127,9 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideLinkedEditingRanges(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findLinkedEditingRanges(
+			const codeResult = await languageService.getLinkedEditingRanges(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return toLinkedEditingRanges(codeResult);
@@ -137,9 +137,9 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideDefinition(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDefinition(
+			const codeResult = await languageService.getDefinition(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return codeResult.map(toLocationLink);
@@ -147,9 +147,9 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideImplementation(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findImplementations(
+			const codeResult = await languageService.getImplementations(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return codeResult.map(toLocationLink);
@@ -157,9 +157,9 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideTypeDefinition(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findTypeDefinition(
+			const codeResult = await languageService.getTypeDefinition(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return codeResult.map(toLocationLink);
@@ -167,7 +167,7 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideCodeLenses(model) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.doCodeLens(model.uri as URI);
+			const codeResult = await languageService.getCodeLenses(model.uri as URI);
 			if (codeResult) {
 				const monacoResult = codeResult.map(toCodeLens);
 				for (let i = 0; i < monacoResult.length; i++) {
@@ -183,7 +183,7 @@ export async function createLanguageFeaturesProvider(
 			let codeResult = codeLens.get(monacoResult);
 			if (codeResult) {
 				const languageService = await worker.withSyncedResources(getSyncUris());
-				codeResult = await languageService.doCodeLensResolve(codeResult);
+				codeResult = await languageService.resolveCodeLens(codeResult);
 				if (codeResult) {
 					monacoResult = toCodeLens(codeResult);
 					codeLens.set(monacoResult, codeResult);
@@ -202,13 +202,13 @@ export async function createLanguageFeaturesProvider(
 			}
 
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.doCodeActions(
+			const codeResult = await languageService.getCodeActions(
 				model.uri as URI,
 				fromRange(range),
 				{
 					diagnostics: diagnostics,
 					only: context.only ? [context.only] : undefined,
-				},
+				}
 			);
 
 			if (codeResult) {
@@ -226,7 +226,7 @@ export async function createLanguageFeaturesProvider(
 			let codeResult = codeActions.get(monacoResult);
 			if (codeResult) {
 				const languageService = await worker.withSyncedResources(getSyncUris());
-				codeResult = await languageService.doCodeActionResolve(codeResult);
+				codeResult = await languageService.resolveCodeAction(codeResult);
 				if (codeResult) {
 					monacoResult = toCodeAction(codeResult);
 					codeActions.set(monacoResult, codeResult);
@@ -236,11 +236,11 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideDocumentFormattingEdits(model, options) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.format(
+			const codeResult = await languageService.getDocumentFormattingEdits(
 				model.uri as URI,
 				fromFormattingOptions(options),
 				undefined,
-				undefined,
+				undefined
 			);
 			if (codeResult) {
 				return codeResult.map(toTextEdit);
@@ -248,11 +248,11 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideDocumentRangeFormattingEdits(model, range, options) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.format(
+			const codeResult = await languageService.getDocumentFormattingEdits(
 				model.uri as URI,
 				fromFormattingOptions(options),
 				fromRange(range),
-				undefined,
+				undefined
 			);
 			if (codeResult) {
 				return codeResult.map(toTextEdit);
@@ -260,14 +260,14 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideOnTypeFormattingEdits(model, position, ch, options) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.format(
+			const codeResult = await languageService.getDocumentFormattingEdits(
 				model.uri as URI,
 				fromFormattingOptions(options),
 				undefined,
 				{
 					ch: ch,
 					position: fromPosition(position),
-				},
+				}
 			);
 			if (codeResult) {
 				return codeResult.map(toTextEdit);
@@ -275,7 +275,7 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideLinks(model) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDocumentLinks(model.uri as URI);
+			const codeResult = await languageService.getDocumentLinks(model.uri as URI);
 			if (codeResult) {
 				return {
 					links: codeResult.map(link => {
@@ -289,17 +289,17 @@ export async function createLanguageFeaturesProvider(
 		async resolveLink(link) {
 			let codeResult = documentLinks.get(link);
 			if (codeResult) {
-				codeResult = await languageService.doDocumentLinkResolve(codeResult);
+				codeResult = await languageService.resolveDocumentLink(codeResult);
 				return toLink(codeResult);
 			}
 			return link;
 		},
 		async provideCompletionItems(model, position, context) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.doComplete(
+			const codeResult = await languageService.getCompletionItems(
 				model.uri as URI,
 				fromPosition(position),
-				fromCompletionContext(context),
+				fromCompletionContext(context)
 			);
 			const wordInfo = model.getWordUntilPosition(position);
 			const monacoResult = toCompletionList(codeResult, {
@@ -322,7 +322,7 @@ export async function createLanguageFeaturesProvider(
 			let codeItem = completionItems.get(monacoItem);
 			if (codeItem) {
 				const languageService = await worker.withSyncedResources(getSyncUris());
-				codeItem = await languageService.doCompletionResolve(codeItem);
+				codeItem = await languageService.resolveCompletionItem(codeItem);
 				monacoItem = toCompletionItem(codeItem, {
 					range: 'replace' in monacoItem.range ? monacoItem.range.replace : monacoItem.range
 				});
@@ -332,7 +332,7 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideDocumentColors(model) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDocumentColors(model.uri as URI);
+			const codeResult = await languageService.getDocumentColors(model.uri as URI);
 			if (codeResult) {
 				return codeResult.map(toColorInformation);
 			}
@@ -349,7 +349,7 @@ export async function createLanguageFeaturesProvider(
 						end: fromPosition(
 							model.getPositionAt(model.getValueLength())
 						),
-					},
+					}
 				);
 				if (codeColors) {
 					return codeColors.map(toColorPresentation);
@@ -365,9 +365,9 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideDeclaration(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findDefinition(
+			const codeResult = await languageService.getDefinition(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return codeResult.map(toLocationLink);
@@ -375,24 +375,18 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideSelectionRanges(model, positions) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResults = await Promise.all(
-				positions.map(position =>
-					languageService.getSelectionRanges(
-						model.uri as URI,
-						[fromPosition(position)],
-					)
-				)
+			const codeResults = await languageService.getSelectionRanges(
+				model.uri as URI,
+				positions.map(fromPosition)
 			);
-			return codeResults.map(
-				codeResult => codeResult?.map(toSelectionRange) ?? []
-			);
+			return codeResults?.map(toSelectionRanges);
 		},
 		async provideSignatureHelp(model, position, _token, context) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
 			const codeResult = await languageService.getSignatureHelp(
 				model.uri as URI,
 				fromPosition(position),
-				fromSignatureHelpContext(context),
+				fromSignatureHelpContext(context)
 			);
 			if (codeResult) {
 				return {
@@ -403,10 +397,10 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideRenameEdits(model, position, newName) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.doRename(
+			const codeResult = await languageService.getRenameEdits(
 				model.uri as URI,
 				fromPosition(position),
-				newName,
+				newName
 			);
 			if (codeResult) {
 				return toWorkspaceEdit(codeResult);
@@ -414,10 +408,10 @@ export async function createLanguageFeaturesProvider(
 		},
 		async provideReferences(model, position, _context) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.findReferences(
+			const codeResult = await languageService.getReferences(
 				model.uri as URI,
 				fromPosition(position),
-				{ includeDeclaration: true },
+				{ includeDeclaration: true }
 			);
 			if (codeResult) {
 				return codeResult.map(toLocation);
@@ -427,7 +421,7 @@ export async function createLanguageFeaturesProvider(
 			const languageService = await worker.withSyncedResources(getSyncUris());
 			const codeResult = await languageService.getInlayHints(
 				model.uri as URI,
-				fromRange(range),
+				fromRange(range)
 			);
 			if (codeResult) {
 				return {
@@ -444,16 +438,16 @@ export async function createLanguageFeaturesProvider(
 			const languageService = await worker.withSyncedResources(getSyncUris());
 			const codeHint = inlayHints.get(hint);
 			if (codeHint) {
-				const resolvedCodeHint = await languageService.doInlayHintResolve(codeHint);
+				const resolvedCodeHint = await languageService.resolveInlayHint(codeHint);
 				return toInlayHint(resolvedCodeHint);
 			}
 			return hint;
 		},
 		async provideHover(model, position) {
 			const languageService = await worker.withSyncedResources(getSyncUris());
-			const codeResult = await languageService.doHover(
+			const codeResult = await languageService.getHover(
 				model.uri as URI,
-				fromPosition(position),
+				fromPosition(position)
 			);
 			if (codeResult) {
 				return toHover(codeResult);
