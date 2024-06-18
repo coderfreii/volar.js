@@ -10,9 +10,14 @@ import { createLanguageService, type LanguageService } from '@volar/language-ser
 export function createSimpleProject(languagePlugins: LanguagePlugin<URI>[]): ProjectFacade {
 	let languageService: LanguageService | undefined;
 
+	let  _server : LanguageServer
+
 	return {
-		reolveLanguageServiceByUri(server) {
-			languageService ??= create(server);
+		setup(server) {
+			_server = server
+		},
+		reolveLanguageServiceByUri(uri: URI) {
+			languageService ??= create(_server);
 			return languageService;
 		},
 		getExistingLanguageServices() {

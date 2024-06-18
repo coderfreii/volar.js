@@ -35,20 +35,25 @@ export function createTypeScriptProjectFacade(
 
 	const searchedDirs = new Set<string>();
 
+	let  _server : LanguageServer
+
 	const projects: ProjectFacade = {
-		async reolveLanguageServiceByUri(server, uri) {
+		setup(server) {
+			_server = server
+		},
+		async reolveLanguageServiceByUri(uri) {
 			if (!initialized) {
 				initialized = true;
-				initialize(server);
+				initialize(_server);
 			}
 
-			const tsconfig = await findMatchTSConfigAndInitialAllRelativeProject(server, uri);
+			const tsconfig = await findMatchTSConfigAndInitialAllRelativeProject(_server, uri);
 			if (tsconfig) {
-				const project = await getOrCreateConfiguredProject(server, tsconfig);
+				const project = await getOrCreateConfiguredProject(_server, tsconfig);
 				return project.languageService;
 			} else {
-				const workspaceFolder = getWorkspaceFolder(uri, server.workspaceFolders);
-				const project = await getOrCreateInferredProject(server, uri, workspaceFolder);
+				const workspaceFolder = getWorkspaceFolder(uri, _server.workspaceFolders);
+				const project = await getOrCreateInferredProject(_server, uri, workspaceFolder);
 				return project.languageService;
 			}
 		},

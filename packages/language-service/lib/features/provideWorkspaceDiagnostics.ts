@@ -4,7 +4,7 @@ import { notEmpty } from '../utils/common';
 import { NoneCancellationToken } from '../utils/cancellation';
 import { URI } from 'vscode-uri';
 import { transformDiagnostic } from './provideDiagnostics';
-import { shouldReportDiagnostics } from '@volar/language-core';
+import { shouldReportDiagnostics } from '@volar/language-core/lib/editorFeatures';
 
 export function register(context: LanguageServiceContext) {
 

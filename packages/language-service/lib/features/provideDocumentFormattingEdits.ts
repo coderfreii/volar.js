@@ -8,11 +8,10 @@ import type { EmbeddedCodeFormattingOptions, LanguageServiceContext } from '../t
 import { NoneCancellationToken } from '../utils/cancellation';
 import { findOverlapCodeRange, stringToSnapshot } from '../utils/common';
 import { getEmbeddedFilesByLevel as getEmbeddedCodesByLevel } from '../utils/featureWorkers';
-import { createUriMap } from '../utils/uriMap';
-import { forEachEmbeddedCode, updateVirtualCodeMapOfMap } from '@volar/language-core';
+import { forEachEmbeddedCode } from '@volar/language-core';
 import { isFormattingEnabled } from '@volar/language-core/lib/editorFeatures';
-import type { SourceScript, VirtualCode, CodeInformation } from '@volar/language-core/lib/types';
-import type { SourceMap } from '@volar/source-map';
+import type { SourceScript, VirtualCode } from '@volar/language-core/lib/types';
+import { SourceMap } from '@volar/source-map';
 
 export function register(context: LanguageServiceContext) {
 

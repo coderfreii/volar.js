@@ -1,6 +1,6 @@
 import { isDiagnosticsEnabled } from '@volar/language-core/lib/editorFeatures';
 import { createLanguage, forEachEmbeddedCode } from '@volar/language-core';
-import type { LanguagePlugin, VirtualCode } from '@volar/language-core/lib/types';
+import type { LanguagePlugin, SourceScript, VirtualCode } from '@volar/language-core/lib/types';
 import { FileMap } from '@volar/language-core/lib/utils';
 import type { Linter } from 'eslint';
 import { TextDocument } from 'vscode-languageserver-textdocument';

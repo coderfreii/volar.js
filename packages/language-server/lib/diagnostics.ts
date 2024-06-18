@@ -67,7 +67,7 @@ function setup(
 
 	async function pushDiagnostics(projects: ProjectFacade, uriStr: string, version: number, cancel: vscode.CancellationToken) {
 		const uri = URI.parse(uriStr);
-		const languageService = (await projects.reolveLanguageServiceByUri(server, uri));
+		const languageService = (await projects.reolveLanguageServiceByUri(uri));
 		const errors = await languageService.doValidation(uri, cancel, result => {
 			holder.connection.sendDiagnostics({ uri: uriStr, diagnostics: result, version });
 		});
@@ -104,10 +104,10 @@ function setup(
 		activateServerPushDiagnostics,
 		clearPushDiagnostics,
 		refresh
-	}
+	};
 }
 
 
 export const diagnosticsSetup = {
 	setup
-}
+};
