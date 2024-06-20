@@ -1,4 +1,3 @@
-// import type { FileSystem, FileType, LanguageServiceEnvironment } from '@volar/language-service/lib/types';
 import type { FileSystem, FileType, LanguageServiceEnvironment } from '@volar/language-service/lib/types.js';
 import type { URI } from 'vscode-uri';
 

@@ -1,4 +1,3 @@
-// import { isSemanticTokensEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { SemanticToken, LanguageServiceContext } from '../types';

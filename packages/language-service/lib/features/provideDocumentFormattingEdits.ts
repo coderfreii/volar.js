@@ -1,4 +1,3 @@
-// import { CodeInformation, SourceMap, SourceScript, VirtualCode, forEachEmbeddedCode, isFormattingEnabled, updateVirtualCodeMapOfMap } from '@volar/language-core';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';

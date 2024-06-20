@@ -1,7 +1,6 @@
 import type { LanguagePlugin } from '@volar/language-core/lib/types';
 import * as fs from 'fs';
 import type * as ts from 'typescript';
-// import type { LanguagePlugin } from '@volar/language-core';
 
 export let getLanguagePlugins: (ts: typeof import('typescript'), options: ts.CreateProgramOptions) => LanguagePlugin<string>[] = () => [];
 

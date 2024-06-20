@@ -16,7 +16,7 @@ export function createSimpleProject(languagePlugins: LanguagePlugin<URI>[]): Pro
 		setup(server) {
 			_server = server
 		},
-		reolveLanguageServiceByUri(uri: URI) {
+		reolveLanguageServiceByUri() {
 			languageService ??= create(_server);
 			return languageService;
 		},

@@ -1,4 +1,3 @@
-// import { isDiagnosticsEnabled, shouldReportDiagnostics, type CodeInformation } from '@volar/language-core';
 import type * as ts from 'typescript';
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { TextDocument } from 'vscode-languageserver-textdocument';

@@ -1,4 +1,3 @@
-// import { CodeInformation, CodeRangeKey, LinkedCodeMap, Mapping, SourceMap, VirtualCode, translateOffset } from '@volar/language-core';
 import type { LinkedCodeMap } from '@volar/language-core/lib/linkedCodeMap';
 import type { CodeInformation, VirtualCode } from '@volar/language-core/lib/types';
 import type * as vscode from 'vscode-languageserver-protocol';

@@ -1,4 +1,3 @@
-// import type { LanguageService } from '@volar/language-service';
 import { fromPosition, toMarkerData, toTextEdit } from 'monaco-languageserver-types';
 import type { editor, IDisposable, MonacoEditor, Uri } from 'monaco-types';
 import type { URI } from 'vscode-uri';

@@ -1,6 +1,6 @@
 import { URI } from "vscode-uri";
 import type { Holder } from "./server";
-import type { LanguageServer, ProjectFacade } from "./types";
+import type {  ProjectFacade } from "./types";
 import { sleep } from "@volar/language-service/lib/utils/common";
 import * as vscode from 'vscode-languageserver';
 import { configurationWatcherSetup } from "./watcher/configurationWatcher";
@@ -14,7 +14,6 @@ function setup(
 	holder: Holder
 	, configurationWatcher: ReturnType<typeof configurationWatcherSetup.setup>
 	, documentUri: ReturnType<typeof documentsSetup.setup>
-	, server: LanguageServer
 ) {
 
 	function activateServerPushDiagnostics(projects: ProjectFacade) {
@@ -68,7 +67,7 @@ function setup(
 	async function pushDiagnostics(projects: ProjectFacade, uriStr: string, version: number, cancel: vscode.CancellationToken) {
 		const uri = URI.parse(uriStr);
 		const languageService = (await projects.reolveLanguageServiceByUri(uri));
-		const errors = await languageService.doValidation(uri, cancel, result => {
+		const errors = await languageService.getDiagnostics(uri, cancel, result => {
 			holder.connection.sendDiagnostics({ uri: uriStr, diagnostics: result, version });
 		});
 

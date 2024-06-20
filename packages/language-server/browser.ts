@@ -1,4 +1,3 @@
-// import { FileType } from '@volar/language-service';
 import * as vscode from 'vscode-languageserver/browser';
 import { URI } from 'vscode-uri';
 import httpSchemaRequestHandler from './lib/schemaRequestHandlers/http';

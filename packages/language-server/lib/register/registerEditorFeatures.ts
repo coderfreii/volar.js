@@ -49,7 +49,7 @@ export function registerEditorFeatures(server: LanguageServer) {
 
 		const uri = URI.parse(textDocument.uri);
 		const languageService = (await server.projectFacade.reolveLanguageServiceByUri(uri));
-		return languageService.doDocumentDrop(uri, position, dataTransferMap, token);
+		return languageService.getDocumentDropEdits(uri, position, dataTransferMap, token);
 	});
 	server.connection.onRequest(GetMatchTsConfigRequest.type, async params => {
 		const uri = URI.parse(params.uri);
@@ -108,7 +108,7 @@ export function registerEditorFeatures(server: LanguageServer) {
 			size: number;
 		}>();
 
-		for (const languageService of await server.projectFacade.getExistingLanguageServices(server)) {
+		for (const languageService of await server.projectFacade.getExistingLanguageServices()) {
 			const tsLanguageService: ts.LanguageService | undefined = languageService.context.inject<any>('typescript/languageService');
 			const program = tsLanguageService?.getProgram();
 			if (program && languageService.context.language.typescript) {

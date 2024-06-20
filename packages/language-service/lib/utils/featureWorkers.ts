@@ -1,4 +1,3 @@
-// import type { VirtualCode } from '@volar/language-core';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { URI } from 'vscode-uri';
 import type { SourceMapWithDocuments } from '../documents';

@@ -1,4 +1,3 @@
-// import { isSymbolsEnabled } from '@volar/language-core';d
 import type * as vscode from 'vscode-languageserver-protocol';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';

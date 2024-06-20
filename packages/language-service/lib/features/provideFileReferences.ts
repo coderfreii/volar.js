@@ -1,4 +1,3 @@
-// import { isReferencesEnabled } from '@volar/language-core';
 import type * as vscode from 'vscode-languageserver-protocol';
 import { URI } from 'vscode-uri';
 import type { NullableProviderResult, LanguageServiceContext } from '../types';

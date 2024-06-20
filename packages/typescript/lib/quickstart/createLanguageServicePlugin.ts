@@ -1,4 +1,3 @@
-// import { FileMap, LanguagePlugin, createLanguage } from '@volar/language-core';
 import type * as ts from 'typescript';
 import { resolveFileLanguageId } from '../common';
 import { decorateLanguageService } from '../node/decorateLanguageService';

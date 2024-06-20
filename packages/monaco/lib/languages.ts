@@ -1,4 +1,3 @@
-// import type { LanguageService } from '@volar/language-service';
 import type {
 	IDisposable,
 	MonacoEditor,

@@ -312,7 +312,7 @@ export function registerLanguageFeatures(server: LanguageServer) {
 					resolve(undefined);
 					return;
 				}
-				const languageService = (await server.projectFacade.reolveLanguageServiceByUri(server, uri));
+				const languageService = (await server.projectFacade.reolveLanguageServiceByUri(uri));
 				const result = await cb(languageService);
 				if (token.isCancellationRequested) {
 					resolve(undefined);

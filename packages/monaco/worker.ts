@@ -4,14 +4,6 @@ import type { LanguageServiceEnvironment, LanguageServicePlugin } from '@volar/l
 
 import {  	createLanguageService as _createLanguageService } from '@volar/language-service/lib/languageService.js';
 import { createUriMap } from '@volar/language-service/lib/utils/uriMap.js';
-// import {
-// 	LanguageServicePlugin,
-// 	createLanguageService as _createLanguageService,
-// 	createLanguage,
-// 	createUriMap,
-// 	type LanguageService,
-// 	type LanguageServiceEnvironment,
-// } from '@volar/language-service';
 import { createTsLanguageServiceHost, createSys, resolveFileLanguageId } from '@volar/typescript';
 import type * as monaco from 'monaco-types';
 import type * as ts from 'typescript';

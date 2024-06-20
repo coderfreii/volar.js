@@ -1,4 +1,3 @@
-// import { isFoldingRangesEnabled } from '@volar/language-core';
 import type { URI } from 'vscode-uri';
 import type { LanguageServiceContext } from '../types';
 import { NoneCancellationToken } from '../utils/cancellation';

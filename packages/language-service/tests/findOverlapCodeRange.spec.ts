@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { findOverlapCodeRange } from '../lib/utils/common';
 import type { CodeInformation } from '@volar/language-core/lib/types';
 import { type Mapping, SourceMap } from '@volar/source-map';
-// import { CodeInformation, Mapping, SourceMap } from '@volar/language-core';
 
 // test code: <html><body><p>Hello</p></body></html>
 

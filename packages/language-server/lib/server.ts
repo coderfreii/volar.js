@@ -85,7 +85,7 @@ export function createServerBase(
 	};
 
 
-	const diagnostic = diagnosticsSetup.setup(holder, configurationWatcher, documents, server);
+	const diagnostic = diagnosticsSetup.setup(holder, configurationWatcher, documents);
 
 	function diagnosticGetter() {
 		return diagnostic;
@@ -97,13 +97,13 @@ export function createServerBase(
 
 	function initialize(
 		initializeParams: vscode.InitializeParams,
-		project: LanguageServerProject,
 		languageServicePlugins: LanguageServicePlugin[],
 		projectFacade: ProjectFacade,
 		options?: {
 			pullModelDiagnostics?: boolean;
 		}
 	) {
+		projectFacade.setup(server)
 		holder.initializeParams = initializeParams;
 		holder.languageServicePlugins = languageServicePlugins;
 		holder.projectFacade = projectFacade;
@@ -253,39 +253,62 @@ export function createServerBase(
 					moreTriggerCharacter: [...new Set(capabilitiesArr.map(data => data.documentOnTypeFormattingProvider?.triggerCharacters ?? []).flat())].slice(1),
 				}
 				: undefined,
-			autoInsertion: capabilitiesArr.some(data => data.autoInsertionProvider)
-				? wrapper()
-				:
-				undefined
 		};
 
 
-		function wrapper() {
-			const allTriggerCharacters: string[] = [];
-			const allConfigurationSections: (string | undefined)[] = [];
-			for (const data of capabilitiesArr) {
-				if (data.autoInsertionProvider) {
-					const { triggerCharacters, configurationSections } = data.autoInsertionProvider;
-					if (configurationSections) {
-						if (configurationSections.length !== triggerCharacters.length) {
-							throw new Error('configurationSections.length !== triggerCharacters.length');
-						}
-						for (let i = 0; i < configurationSections.length; i++) {
-							tryAdd(triggerCharacters[i], configurationSections[i]);
-						}
+
+		if (capabilitiesArr.some(data => data.autoInsertionProvider)) {
+			wrapper()
+			function wrapper() {
+				const triggerCharacterToConfigurationSections = new Map<string, Set<string>>();
+				const tryAdd = (char: string, section?: string) => {
+					let sectionSet = triggerCharacterToConfigurationSections.get(char);
+					if (!sectionSet) {
+						triggerCharacterToConfigurationSections.set(char, sectionSet = new Set());
 					}
-					else {
-						for (const char of triggerCharacters) {
-							tryAdd(char);
+					if (section) {
+						sectionSet.add(section);
+					}
+				};
+				for (const data of capabilitiesArr) {
+					if (data.autoInsertionProvider) {
+						const { triggerCharacters, configurationSections } = data.autoInsertionProvider;
+						if (configurationSections) {
+							if (configurationSections.length !== triggerCharacters.length) {
+								throw new Error('configurationSections.length !== triggerCharacters.length');
+							}
+							for (let i = 0; i < configurationSections.length; i++) {
+								tryAdd(triggerCharacters[i], configurationSections[i]);
+							}
+						}
+						else {
+							for (const char of triggerCharacters) {
+								tryAdd(char);
+							}
 						}
 					}
 				}
+				holder.initializeResult.autoInsertion = {
+					triggerCharacters: [],
+					configurationSections: [],
+				};
+				for (const [char, sections] of triggerCharacterToConfigurationSections) {
+					if (sections.size) {
+						for (const section of sections) {
+							holder.initializeResult.autoInsertion.triggerCharacters.push(char);
+							holder.initializeResult.autoInsertion.configurationSections.push(section);
+						}
+					}
+					else {
+						holder.initializeResult.autoInsertion.triggerCharacters.push(char);
+						holder.initializeResult.autoInsertion.configurationSections.push(null);
+					}
+				}
 			}
-			return {
-				triggerCharacters: allTriggerCharacters,
-				configurationSections: allConfigurationSections,
-			};
+
 		}
+
+
 
 		return capabilities;
 	}
